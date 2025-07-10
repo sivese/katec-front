@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'activity.dart';
 
 class Trip {
   final String id;
@@ -7,6 +8,8 @@ class Trip {
   final DateTime startDate;
   final DateTime endDate;
   final TripStatus status;
+  final List<Activity> activities;
+  final String? description;
 
   Trip({
     required this.id,
@@ -15,7 +18,37 @@ class Trip {
     required this.startDate,
     required this.endDate,
     required this.status,
+    this.activities = const [],
+    this.description,
   });
+
+  int get durationInDays {
+    return endDate.difference(startDate).inDays + 1;
+  }
+
+  List<Activity> get accommodationActivities {
+    return activities
+        .where((activity) => activity.type == ActivityType.accommodation)
+        .toList();
+  }
+
+  List<Activity> get transportationActivities {
+    return activities
+        .where((activity) => activity.type == ActivityType.transportation)
+        .toList();
+  }
+
+  List<Activity> get sightseeingActivities {
+    return activities
+        .where((activity) => activity.type == ActivityType.sightseeing)
+        .toList();
+  }
+
+  List<Activity> get diningActivities {
+    return activities
+        .where((activity) => activity.type == ActivityType.dining)
+        .toList();
+  }
 }
 
 enum TripStatus {

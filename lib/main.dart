@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/welcome_screen.dart';
 
-void main() {
+Future<void> main() async {
+  // 환경변수 파일 로드
+  await dotenv.load(fileName: ".env");
+
   runApp(const MainApp());
 }
 
