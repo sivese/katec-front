@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/trip.dart';
 import '../models/activity.dart';
+import '../services/api_service.dart';
+import '../services/token_service.dart';
 import '../widgets/trip_list_widget.dart';
 import '../widgets/empty_button_widget.dart';
 import 'trip_detail_screen.dart';
+import 'create_trip_screen.dart';
 
 class TripManagementScreen extends StatefulWidget {
   const TripManagementScreen({super.key});
@@ -13,14 +16,43 @@ class TripManagementScreen extends StatefulWidget {
 }
 
 class _TripManagementScreenState extends State<TripManagementScreen> {
-  // TODO: Data Fetching 전환 시 수정할 부분
-  // 1. 실제 API에서 Trip 데이터를 가져오도록 변경
-  // 2. 상태 관리 라이브러리 사용 (Provider, Bloc, GetX 등)
-  // 3. 로딩 상태 처리 추가
-  // 4. 에러 상태 처리 추가
-  // 5. 새로고침 기능 추가
-
   List<Trip> _trips = [];
+  bool _isLoading = true;
+  String? _error;
+  bool _hasChanges = false; // 변경사항 추적
+
+  Trip _fromApiJson(Map<String, dynamic> json) {
+    // tripId 필드 확인을 위한 디버깅
+    print('Processing trip: ${json['tripName']}');
+    print('Available fields: ${json.keys.toList()}');
+    print('tripId field: ${json['tripId']}');
+    print('id field: ${json['id']}');
+
+    String tripId;
+    if (json['tripId'] != null) {
+      tripId = json['tripId'].toString();
+      print('Using tripId: $tripId');
+    } else if (json['id'] is Map) {
+      final idMap = json['id'] as Map;
+      // fallback: timestamp를 사용
+      tripId = idMap['timestamp']?.toString() ?? '';
+      print('Using timestamp as fallback: $tripId');
+    } else {
+      tripId = json['id']?.toString() ?? '';
+      print('Using direct id: $tripId');
+    }
+
+    return Trip(
+      id: tripId,
+      title: json['tripName'] ?? '',
+      destination: json['destination'] ?? '',
+      startDate: DateTime.parse(json['startDate']),
+      endDate: DateTime.parse(json['endDate']),
+      status: TripStatus.planning, // 상태값은 필요시 추가 매핑
+      description: '',
+      activities: [],
+    );
+  }
 
   @override
   void initState() {
@@ -28,221 +60,196 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
     _loadTrips();
   }
 
-  void _loadTrips() {
-    // 임시 데이터 - 실제로는 API 호출
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 화면이 포커스를 받을 때마다 Trip 데이터 새로고침
+    _loadTrips();
+  }
+
+  Future<void> _loadTrips() async {
     setState(() {
-      _trips = [
-        Trip(
-          id: '1',
-          title: 'Jeju Island Trip',
-          destination: 'Jeju Island',
-          startDate: DateTime.now().add(const Duration(days: 7)),
-          endDate: DateTime.now().add(const Duration(days: 10)),
-          status: TripStatus.upcoming,
-          description:
-              '3 nights 4 days trip to Jeju Island - hiking Hallasan and beach sightseeing',
-          activities: [
-            Activity(
-              id: '1-1',
-              title: 'Jeju Grand Hotel',
-              description: '4-star hotel located in the center of Jeju City',
-              type: ActivityType.accommodation,
-              status: ActivityStatus.confirmed,
-              startTime: DateTime.now().add(const Duration(days: 7)),
-              endTime: DateTime.now().add(const Duration(days: 10)),
-              location: '15 Gwandeok-ro, Jeju City',
-              bookingReference: 'JEJU-HOTEL-001',
-            ),
-            Activity(
-              id: '1-2',
-              title: 'Jeju Airport → Hotel',
-              description: 'Rental car transfer',
-              type: ActivityType.transportation,
-              status: ActivityStatus.confirmed,
-              startTime: DateTime.now().add(const Duration(days: 7, hours: 2)),
-              endTime: DateTime.now().add(const Duration(days: 7, hours: 3)),
-              location: 'Jeju Airport → Jeju City',
-              bookingReference: 'CAR-RENTAL-001',
-            ),
-            Activity(
-              id: '1-3',
-              title: 'Hallasan Hiking',
-              description:
-                  'Hiking to the summit of Hallasan via Seongpanak trail',
-              type: ActivityType.sightseeing,
-              status: ActivityStatus.planned,
-              startTime: DateTime.now().add(const Duration(days: 8, hours: 6)),
-              endTime: DateTime.now().add(const Duration(days: 8, hours: 18)),
-              location: 'Hallasan Seongpanak Trail',
-            ),
-            Activity(
-              id: '1-4',
-              title: 'Jeju Black Pork Restaurant',
-              description: 'Famous Jeju black pork samgyeopsal',
-              type: ActivityType.dining,
-              status: ActivityStatus.planned,
-              startTime: DateTime.now().add(const Duration(days: 8, hours: 19)),
-              endTime: DateTime.now().add(const Duration(days: 8, hours: 21)),
-              location: '20 Gwandeok-ro, Jeju City',
-            ),
-          ],
-        ),
-        Trip(
-          id: '2',
-          title: 'Busan Trip',
-          destination: 'Busan',
-          startDate: DateTime.now().subtract(const Duration(days: 5)),
-          endDate: DateTime.now().subtract(const Duration(days: 2)),
-          status: TripStatus.completed,
-          description:
-              '2 nights 3 days trip to Busan - Haeundae Beach and Gamcheon Culture Village',
-          activities: [
-            Activity(
-              id: '2-1',
-              title: 'Haeundae Grand Hotel',
-              description: 'Hotel with ocean view at Haeundae Beach',
-              type: ActivityType.accommodation,
-              status: ActivityStatus.completed,
-              startTime: DateTime.now().subtract(const Duration(days: 5)),
-              endTime: DateTime.now().subtract(const Duration(days: 2)),
-              location: '264 Haeundaehaebyeon-ro, Haeundae-gu',
-            ),
-            Activity(
-              id: '2-2',
-              title: 'KTX to Busan',
-              description: 'Seoul → Busan KTX',
-              type: ActivityType.transportation,
-              status: ActivityStatus.completed,
-              startTime: DateTime.now().subtract(
-                const Duration(days: 5, hours: 2),
-              ),
-              endTime: DateTime.now().subtract(
-                const Duration(days: 5, hours: 4),
-              ),
-              location: 'Seoul Station → Busan Station',
-            ),
-            Activity(
-              id: '2-3',
-              title: 'Gamcheon Culture Village',
-              description: 'Santorini of Busan - Gamcheon Culture Village tour',
-              type: ActivityType.sightseeing,
-              status: ActivityStatus.completed,
-              startTime: DateTime.now().subtract(
-                const Duration(days: 4, hours: 10),
-              ),
-              endTime: DateTime.now().subtract(
-                const Duration(days: 4, hours: 16),
-              ),
-              location: 'Gamcheon-dong, Saha-gu',
-            ),
-          ],
-        ),
-        Trip(
-          id: '3',
-          title: 'Tokyo Trip',
-          destination: 'Tokyo, Japan',
-          startDate: DateTime.now().add(const Duration(days: 30)),
-          endDate: DateTime.now().add(const Duration(days: 35)),
-          status: TripStatus.planning,
-          description:
-              '5 nights 6 days trip to Tokyo - Shibuya, Harajuku, Akihabara',
-          activities: [
-            Activity(
-              id: '3-1',
-              title: 'Shibuya Hotel',
-              description: 'Hotel near Shibuya Station',
-              type: ActivityType.accommodation,
-              status: ActivityStatus.planned,
-              startTime: DateTime.now().add(const Duration(days: 30)),
-              endTime: DateTime.now().add(const Duration(days: 35)),
-              location: '1-1-1 Shibuya, Shibuya-ku',
-            ),
-            Activity(
-              id: '3-2',
-              title: 'Incheon Airport → Narita Airport',
-              description: 'Korean Air KE705',
-              type: ActivityType.transportation,
-              status: ActivityStatus.planned,
-              startTime: DateTime.now().add(const Duration(days: 30, hours: 8)),
-              endTime: DateTime.now().add(const Duration(days: 30, hours: 11)),
-              location: 'Incheon Airport → Narita Airport',
-              bookingReference: 'KE705-2024-01-15',
-            ),
-          ],
-        ),
-      ];
+      _isLoading = true;
+      _error = null;
     });
+
+    try {
+      // 토큰 가져오기
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      // API 서비스를 통한 Trip 목록 조회
+      final apiService = ApiService();
+      final response = await apiService.getTripList(token);
+
+      final tripsJson = response['trips'] as List<dynamic>? ?? [];
+      final trips = tripsJson
+          .map((e) => _fromApiJson(e as Map<String, dynamic>))
+          .toList();
+
+      // 시작일 기준으로 정렬 (가장 가까운 여행이 먼저 오도록)
+      trips.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+      setState(() {
+        _trips = trips;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load trips: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _createNewTrip() {
-    // TODO: 새 Trip 생성 화면으로 이동
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('New trip creation feature is coming soon.'),
-        backgroundColor: Colors.blue,
-      ),
-    );
+  void _createNewTrip() async {
+    final result = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const CreateTripScreen()));
+
+    // Trip 생성이 성공했으면 새로고침
+    if (result == true) {
+      _hasChanges = true; // 변경사항 표시
+      _loadTrips();
+    }
   }
 
-  void _onTripTap(Trip trip) {
-    Navigator.of(context).push(
+  void _onTripTap(Trip trip) async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => TripDetailScreen(trip: trip)),
     );
+
+    // Trip 삭제가 성공했으면 새로고침
+    if (result == true) {
+      _hasChanges = true; // 변경사항 표시
+      _loadTrips();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E),
-      appBar: AppBar(
+    return WillPopScope(
+      onWillPop: () async {
+        // 변경사항이 있었으면 결과를 전달
+        Navigator.of(context).pop(_hasChanges);
+        return false; // 기본 뒤로가기 동작 방지
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFF1E1E1E),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          'My Trips',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadTrips,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF1E1E1E),
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              // 변경사항이 있었으면 결과를 전달
+              Navigator.of(context).pop(_hasChanges);
+            },
           ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 새 여행 생성 버튼
-            EmptyButtonWidget(
-              text: 'Create New Trip',
-              width: double.infinity,
-              onPressed: _createNewTrip,
-            ),
-            const SizedBox(height: 24),
-
-            // 여행 목록 제목
-            const Text(
-              'My Trip List',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 여행 목록
-            Expanded(
-              child: TripListWidget(trips: _trips, onTripTap: _onTripTap),
+          title: const Text(
+            'My Trips',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              onPressed: _loadTrips,
             ),
           ],
         ),
+        body: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 새 여행 생성 버튼
+              EmptyButtonWidget(
+                text: 'Create New Trip',
+                width: double.infinity,
+                onPressed: _createNewTrip,
+              ),
+              const SizedBox(height: 24),
+
+              // 여행 목록 제목
+              const Text(
+                'My Trip List',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 여행 목록
+              Expanded(child: _buildTripListContent()),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _buildTripListContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Error: $_error',
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _loadTrips, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (_trips.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.flight_takeoff, color: Color(0xFF888888), size: 48),
+            SizedBox(height: 16),
+            Text(
+              'No trips found',
+              style: TextStyle(color: Color(0xFF888888), fontSize: 16),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Create your first trip to get started',
+              style: TextStyle(color: Color(0xFF666666), fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return TripListWidget(trips: _trips, onTripTap: _onTripTap);
   }
 }

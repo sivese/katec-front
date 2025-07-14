@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/trip.dart';
 import '../models/activity.dart';
+import '../services/api_service.dart';
+import '../services/token_service.dart';
 import '../widgets/activity_filter_widget.dart';
+import 'trip_management_screen.dart'; // Added import for TripManagementScreen
 
 class TripDetailScreen extends StatefulWidget {
   final Trip trip;
@@ -16,6 +19,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   ActivityType? _selectedActivityType;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -27,6 +31,84 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _deleteTrip() async {
+    // 삭제 확인 다이얼로그
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2A2A2A),
+          title: const Text(
+            'Delete Trip',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${widget.trip.title}"? This action cannot be undone.',
+            style: const TextStyle(color: Color(0xFFCCCCCC)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      // 토큰 가져오기
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      // API 서비스를 통한 Trip 삭제
+      final apiService = ApiService();
+      await apiService.deleteTrip(token, widget.trip.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Trip deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Trip 삭제 성공 결과를 전달하여 이전 화면에서 새로고침 트리거
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete trip: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -59,6 +141,20 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: _isDeleting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.delete, color: Colors.red),
+            onPressed: _isDeleting ? null : _deleteTrip,
+            tooltip: 'Delete Trip',
           ),
         ],
         bottom: TabBar(
