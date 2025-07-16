@@ -270,6 +270,79 @@ class ApiService {
     }
   }
 
+  // 숙박 생성 API
+  Future<Map<String, dynamic>> createAccommodation(
+    String token,
+    String tripId,
+    DateTime date,
+    String accommodationName,
+    String? description,
+    String? bookingReference,
+    DateTime checkInDate,
+    DateTime checkOutDate,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'tripId': tripId,
+        'date': date.toUtc().toIso8601String(),
+        'accommodationName': accommodationName,
+        'description': description ?? '',
+        'bookingReference': bookingReference ?? '',
+        'checkInDate': checkInDate.toUtc().toIso8601String(),
+        'checkOutDate': checkOutDate.toUtc().toIso8601String(),
+      };
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/accommodation/create'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to create accommodation: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Create accommodation error: $e');
+    }
+  }
+
+  // Trip 상세 조회 API
+  Future<Map<String, dynamic>> getTripDetails(
+    String token,
+    String tripId,
+  ) async {
+    final headers = Map<String, String>.from(_defaultHeaders);
+    headers['Authorization'] = 'Bearer $token';
+
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/trip/$tripId/details'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      final errorBody = json.decode(response.body);
+      final errorMessage =
+          errorBody['message'] ??
+          'Failed to fetch trip details:  {response.statusCode}';
+      throw Exception(errorMessage);
+    }
+  }
+
   // 리소스 정리
   void dispose() {
     _client.close();

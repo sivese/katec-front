@@ -226,24 +226,68 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E1E),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              _refreshUserProfile();
-              _loadTrips();
-            },
-            tooltip: 'Refresh Profile',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _handleSignOut,
-            tooltip: 'Sign Out',
-          ),
-        ],
+      appBar: AppBar(backgroundColor: const Color(0xFF1E1E1E), elevation: 0),
+      drawer: Drawer(
+        backgroundColor: const Color(0xFF2A2A2A),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Color(0xFF1E1E1E)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 35,
+                      color: Color(0xFF1E1E1E),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'User Profile',
+                    style: TextStyle(color: Color(0xFFCCCCCC), fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person, color: Colors.white),
+              title: const Text(
+                'Profile',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: 프로필 화면으로 이동
+              },
+            ),
+            const Divider(color: Color(0xFF444444)),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                'Sign Out',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _handleSignOut();
+              },
+            ),
+          ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),

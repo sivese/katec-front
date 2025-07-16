@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/token_service.dart';
 import '../widgets/activity_filter_widget.dart';
 import 'trip_management_screen.dart'; // Added import for TripManagementScreen
+import 'add_accommodation_screen.dart'; // Added import for AddAccommodationScreen
 
 class TripDetailScreen extends StatefulWidget {
   final Trip trip;
@@ -21,10 +22,67 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   ActivityType? _selectedActivityType;
   bool _isDeleting = false;
 
+  Trip? _tripDetail; // 상세 trip 정보
+  List<Activity> _activities = []; // 상세 activities(숙박 등)
+  bool _isLoading = true;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _fetchTripDetails();
+  }
+
+  Future<void> _fetchTripDetails() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) throw Exception('Authentication token not found');
+      final apiService = ApiService();
+      final response = await apiService.getTripDetails(token, widget.trip.id);
+      // trip 정보 파싱
+      final tripJson = response['trip'] as Map<String, dynamic>;
+      final trip = Trip(
+        id: tripJson['tripId'] ?? '',
+        title: tripJson['tripName'] ?? '',
+        destination: tripJson['destination'] ?? '',
+        startDate: DateTime.parse(tripJson['startDate']),
+        endDate: DateTime.parse(tripJson['endDate']),
+        status: TripStatus.planning, // 필요시 매핑
+        description: '',
+      );
+      // 숙박 리스트 파싱 (accommodations)
+      final accommodations =
+          (response['subTrips']?['accommodations'] as List<dynamic>? ?? []);
+      final activities = accommodations.map((a) {
+        return Activity(
+          id: a['subTripId'] ?? '',
+          title: a['accommodationName'] ?? '',
+          description: a['description'] ?? '',
+          type: ActivityType.accommodation,
+          status: ActivityStatus.planned, // 필요시 매핑
+          startTime: DateTime.parse(a['checkInDate']),
+          endTime: DateTime.parse(a['checkOutDate']),
+          location: trip.destination,
+          bookingReference: a['bookingReference'],
+          notes: null,
+        );
+      }).toList();
+      setState(() {
+        _tripDetail = trip;
+        _activities = activities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -120,10 +178,17 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            // Trip Management 화면으로 돌아가기
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const TripManagementScreen(),
+              ),
+            );
+          },
         ),
         title: Text(
-          widget.trip.title,
+          _tripDetail?.title ?? widget.trip.title,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
@@ -169,19 +234,32 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildOverviewTab(), _buildScheduleTab(), _buildNotesTab()],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOverviewTab(),
+                _buildScheduleTab(),
+                _buildNotesTab(),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navigate to add new activity screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Add new activity feature coming soon.'),
-              backgroundColor: Colors.blue,
+        onPressed: () async {
+          // 숙박 Activity 추가 화면으로 이동 후 복귀 시 새로고침
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  AddAccommodationScreen(trip: _tripDetail ?? widget.trip),
             ),
           );
+          if (result == true) {
+            _fetchTripDetails();
+          }
         },
         backgroundColor: Colors.blue,
         child: const Icon(Icons.add, color: Colors.white),
@@ -190,12 +268,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   }
 
   Widget _buildOverviewTab() {
+    final trip = _tripDetail ?? widget.trip;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 여행 기본 정보 카드
+          // 여행 기본 정보 카드 (기존 trip -> trip)
           Card(
             color: const Color(0xFF2A2A2A),
             child: Padding(
@@ -207,13 +286,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                     children: [
                       Icon(
                         Icons.location_on,
-                        color: widget.trip.status.color,
+                        color: trip.status.color,
                         size: 24,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          widget.trip.destination,
+                          trip.destination,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -227,13 +306,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: widget.trip.status.color.withOpacity(0.2),
+                          color: trip.status.color.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          widget.trip.status.displayName,
+                          trip.status.displayName,
                           style: TextStyle(
-                            color: widget.trip.status.color,
+                            color: trip.status.color,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -242,9 +321,9 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (widget.trip.description != null) ...[
+                  if (trip.description != null) ...[
                     Text(
-                      widget.trip.description!,
+                      trip.description!,
                       style: const TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                     const SizedBox(height: 16),
@@ -255,14 +334,14 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                         child: _buildInfoItem(
                           Icons.calendar_today,
                           '시작일',
-                          _formatDate(widget.trip.startDate),
+                          _formatDate(trip.startDate),
                         ),
                       ),
                       Expanded(
                         child: _buildInfoItem(
                           Icons.calendar_today,
                           '종료일',
-                          _formatDate(widget.trip.endDate),
+                          _formatDate(trip.endDate),
                         ),
                       ),
                     ],
@@ -274,7 +353,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                         child: _buildInfoItem(
                           Icons.access_time,
                           'Duration',
-                          '${widget.trip.durationInDays} days',
+                          '${trip.durationInDays} days',
                         ),
                       ),
                     ],
@@ -302,7 +381,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   }
 
   Widget _buildScheduleTab() {
-    final activities = widget.trip.activities;
+    final activities = _activities;
     if (activities.isEmpty) {
       return const Center(
         child: Column(
@@ -452,7 +531,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   }
 
   Widget _buildActivitySummary() {
-    final activities = widget.trip.activities;
+    final activities = _activities;
     final activityCounts = <ActivityType, int>{};
 
     for (final activity in activities) {
@@ -490,6 +569,71 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   }
 
   Widget _buildActivityCard(Activity activity) {
+    if (activity.type == ActivityType.accommodation) {
+      // 숙박 전용 카드
+      final nights = activity.endTime.difference(activity.startTime).inDays;
+      return Card(
+        color: const Color(0xFF2A2A2A),
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.hotel, color: Colors.blue, size: 20),
+          ),
+          title: Text(
+            activity.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_formatDate(activity.startTime)} ~ ${_formatDate(activity.endTime)} (${nights}박)',
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (activity.bookingReference != null &&
+                  activity.bookingReference!.isNotEmpty)
+                Text(
+                  'Booking: ${activity.bookingReference}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              if (activity.description.isNotEmpty)
+                Text(
+                  activity.description,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+            ],
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              '숙박',
+              style: TextStyle(
+                color: Colors.blue,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    // 기타 활동(기존 방식)
     return Card(
       color: const Color(0xFF2A2A2A),
       margin: const EdgeInsets.only(bottom: 8),

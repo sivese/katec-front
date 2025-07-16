@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 enum ActivityType {
   accommodation, // 숙박
   transportation, // 교통
-  sightseeing, // 관광
-  dining, // 식사
-  shopping, // 쇼핑
-  entertainment, // 엔터테인먼트
-  other, // 기타
+  activity, // 기타 활동
 }
 
 enum ActivityStatus {
@@ -53,13 +49,13 @@ class Activity {
   String get durationText {
     final duration = this.duration;
     if (duration.inHours < 1) {
-      return '${duration.inMinutes}분';
+      return '${duration.inMinutes}min';
     } else if (duration.inHours < 24) {
-      return '${duration.inHours}시간 ${duration.inMinutes % 60}분';
+      return '${duration.inHours} h ${duration.inMinutes % 60} min';
     } else {
       final days = duration.inDays;
       final hours = duration.inHours % 24;
-      return '$days일 $hours시간';
+      return '$days day $hours hours';
     }
   }
 }
@@ -71,16 +67,8 @@ extension ActivityTypeExtension on ActivityType {
         return 'Accommodation';
       case ActivityType.transportation:
         return 'Transportation';
-      case ActivityType.sightseeing:
-        return 'Sightseeing';
-      case ActivityType.dining:
-        return 'Dining';
-      case ActivityType.shopping:
-        return 'Shopping';
-      case ActivityType.entertainment:
-        return 'Entertainment';
-      case ActivityType.other:
-        return 'Other';
+      case ActivityType.activity:
+        return 'Activity';
     }
   }
 
@@ -90,16 +78,8 @@ extension ActivityTypeExtension on ActivityType {
         return Icons.hotel;
       case ActivityType.transportation:
         return Icons.directions_car;
-      case ActivityType.sightseeing:
-        return Icons.photo_camera;
-      case ActivityType.dining:
-        return Icons.restaurant;
-      case ActivityType.shopping:
-        return Icons.shopping_bag;
-      case ActivityType.entertainment:
-        return Icons.movie;
-      case ActivityType.other:
-        return Icons.more_horiz;
+      case ActivityType.activity:
+        return Icons.event;
     }
   }
 
@@ -109,16 +89,8 @@ extension ActivityTypeExtension on ActivityType {
         return Colors.blue;
       case ActivityType.transportation:
         return Colors.green;
-      case ActivityType.sightseeing:
+      case ActivityType.activity:
         return Colors.orange;
-      case ActivityType.dining:
-        return Colors.red;
-      case ActivityType.shopping:
-        return Colors.purple;
-      case ActivityType.entertainment:
-        return Colors.pink;
-      case ActivityType.other:
-        return Colors.grey;
     }
   }
 }

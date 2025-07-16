@@ -1,29 +1,42 @@
 import 'package:flutter/material.dart';
 import '../models/trip.dart';
-import '../services/token_service.dart';
+import '../models/activity.dart';
 import '../services/api_service.dart';
-import 'trip_management_screen.dart';
-import 'trip_detail_screen.dart'; // Added import for TripDetailScreen
+import '../services/token_service.dart';
 
-class CreateTripScreen extends StatefulWidget {
-  const CreateTripScreen({super.key});
+class AddAccommodationScreen extends StatefulWidget {
+  final Trip trip;
+
+  const AddAccommodationScreen({super.key, required this.trip});
 
   @override
-  State<CreateTripScreen> createState() => _CreateTripScreenState();
+  State<AddAccommodationScreen> createState() => _AddAccommodationScreenState();
 }
 
-class _CreateTripScreenState extends State<CreateTripScreen> {
+class _AddAccommodationScreenState extends State<AddAccommodationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _destinationController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _bookingReferenceController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    // 기본값으로 Trip의 시작일과 종료일 설정
+    _startDate = widget.trip.startDate;
+    _endDate = widget.trip.endDate;
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
-    _destinationController.dispose();
+    _descriptionController.dispose();
+    _locationController.dispose();
+    _bookingReferenceController.dispose();
     super.dispose();
   }
 
@@ -31,10 +44,10 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: isStartDate
-          ? DateTime.now().add(const Duration(days: 1))
-          : (_startDate ?? DateTime.now().add(const Duration(days: 2))),
-      firstDate: isStartDate ? DateTime.now() : (_startDate ?? DateTime.now()),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+          ? (_startDate ?? widget.trip.startDate)
+          : (_endDate ?? widget.trip.endDate),
+      firstDate: widget.trip.startDate,
+      lastDate: widget.trip.endDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -69,7 +82,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _createTrip() async {
+  Future<void> _addAccommodation() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -105,48 +118,51 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         throw Exception('Authentication token not found');
       }
 
-      // API 서비스를 통한 Trip 생성
+      // API 서비스를 통한 숙박 생성
       final apiService = ApiService();
-      final response = await apiService.createTrip(
+      final response = await apiService.createAccommodation(
         token,
+        widget.trip.id,
+        _startDate!, // 체크인 날짜를 date로 사용
         _titleController.text.trim(),
-        _startDate!,
-        _endDate!,
-        _destinationController.text.trim(),
+        _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        _bookingReferenceController.text.trim().isEmpty
+            ? null
+            : _bookingReferenceController.text.trim(),
+        DateTime(
+          _startDate!.year,
+          _startDate!.month,
+          _startDate!.day,
+          15,
+          0,
+        ), // 체크인 시간 15:00
+        DateTime(
+          _endDate!.year,
+          _endDate!.month,
+          _endDate!.day,
+          11,
+          0,
+        ), // 체크아웃 시간 11:00
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Trip created successfully!'),
+            content: Text('Accommodation added successfully!'),
             backgroundColor: Colors.green,
           ),
         );
 
-        // API 응답에서 생성된 Trip 정보를 사용하여 Trip Detail 화면으로 이동
-        final tripData = response['trip'] as Map<String, dynamic>? ?? {};
-        final createdTrip = Trip(
-          id: tripData['tripId']?.toString() ?? 'temp_id',
-          title: _titleController.text.trim(),
-          destination: _destinationController.text.trim(),
-          startDate: _startDate!,
-          endDate: _endDate!,
-          status: TripStatus.planning,
-          description: '',
-          activities: [],
-        );
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => TripDetailScreen(trip: createdTrip),
-          ),
-        );
+        // 이전 화면으로 돌아가기
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create trip: ${e.toString()}'),
+            content: Text('Failed to add accommodation: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -172,7 +188,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Create New Trip',
+          'Add Accommodation',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
@@ -184,17 +200,17 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Trip Title Field
+                // Accommodation Title Field
                 TextFormField(
                   controller: _titleController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: 'Trip Title',
+                    labelText: 'Accommodation Name',
                     labelStyle: const TextStyle(color: Color(0xFF888888)),
-                    hintText: 'e.g., Summer Vacation to Japan',
+                    hintText: 'e.g., Grand Hotel Tokyo',
                     hintStyle: const TextStyle(color: Color(0xFF666666)),
                     prefixIcon: const Icon(
-                      Icons.title,
+                      Icons.hotel,
                       color: Color(0xFF888888),
                     ),
                     border: OutlineInputBorder(
@@ -214,24 +230,53 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a trip title';
-                    }
-                    if (value.trim().length < 3) {
-                      return 'Trip title must be at least 3 characters';
+                      return 'Please enter accommodation name';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
 
-                // Destination Field
+                // Description Field
                 TextFormField(
-                  controller: _destinationController,
+                  controller: _descriptionController,
+                  style: const TextStyle(color: Colors.white),
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    labelStyle: const TextStyle(color: Color(0xFF888888)),
+                    hintText: 'e.g., 4-star hotel in the city center',
+                    hintStyle: const TextStyle(color: Color(0xFF666666)),
+                    prefixIcon: const Icon(
+                      Icons.description,
+                      color: Color(0xFF888888),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.white),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF2A2A2A),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Location Field
+                TextFormField(
+                  controller: _locationController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: 'Destination',
+                    labelText: 'Location',
                     labelStyle: const TextStyle(color: Color(0xFF888888)),
-                    hintText: 'e.g., Tokyo, Japan or New York, USA',
+                    hintText: 'e.g., 1-1-1 Shibuya, Tokyo',
                     hintStyle: const TextStyle(color: Color(0xFF666666)),
                     prefixIcon: const Icon(
                       Icons.location_on,
@@ -254,13 +299,41 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a destination';
-                    }
-                    if (value.trim().length < 2) {
-                      return 'Destination must be at least 2 characters';
+                      return 'Please enter location';
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 20),
+
+                // Booking Reference Field
+                TextFormField(
+                  controller: _bookingReferenceController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Booking Reference (Optional)',
+                    labelStyle: const TextStyle(color: Color(0xFF888888)),
+                    hintText: 'e.g., HOTEL-123456',
+                    hintStyle: const TextStyle(color: Color(0xFF666666)),
+                    prefixIcon: const Icon(
+                      Icons.confirmation_number,
+                      color: Color(0xFF888888),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.white),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF2A2A2A),
+                  ),
                 ),
                 const SizedBox(height: 20),
 
@@ -285,7 +358,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          _formatDate(_startDate),
+                          'Check-in: ${_formatDate(_startDate)}',
                           style: TextStyle(
                             color: _startDate == null
                                 ? const Color(0xFF888888)
@@ -319,7 +392,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          _formatDate(_endDate),
+                          'Check-out: ${_formatDate(_endDate)}',
                           style: TextStyle(
                             color: _endDate == null
                                 ? const Color(0xFF888888)
@@ -332,12 +405,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Create Trip Button
+                // Add Accommodation Button
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _createTrip,
+                  onPressed: _isLoading ? null : _addAccommodation,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1E1E1E),
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -350,12 +423,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF1E1E1E),
+                              Colors.white,
                             ),
                           ),
                         )
                       : const Text(
-                          'Create Trip',
+                          'Add Accommodation',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

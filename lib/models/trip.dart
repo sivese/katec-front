@@ -38,15 +38,9 @@ class Trip {
         .toList();
   }
 
-  List<Activity> get sightseeingActivities {
+  List<Activity> get activityActivities {
     return activities
-        .where((activity) => activity.type == ActivityType.sightseeing)
-        .toList();
-  }
-
-  List<Activity> get diningActivities {
-    return activities
-        .where((activity) => activity.type == ActivityType.dining)
+        .where((activity) => activity.type == ActivityType.activity)
         .toList();
   }
 }
