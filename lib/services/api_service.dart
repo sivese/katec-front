@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:mercury_front/services/fcm_service.dart';
 import '../config/env_config.dart';
 
 class ApiService {
@@ -145,6 +146,47 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Health check error: $e');
+    }
+  }
+
+  // Push Message API
+  Future<Map<String, dynamic>> pushMessage(
+      String title,
+      String message,
+      DateTime pushTime
+  ) async {
+    if(FcmService.isAvailable == false) {
+      throw Exception("Platform doesn't support Firebase Cloud Messaging");
+    }
+
+    try {
+      final token = FcmService.fcmToken;
+      final requestBody = {
+        'Title' : title,
+        'Message' : message,
+        'PushTime' : pushTime.toUtc().toIso8601String()
+      };
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/push_message/$token'),
+        headers: _defaultHeaders,
+        body: json.encode(requestBody)
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage = errorBody['message'] ?? 'Failed to push message alarm: ${response.statusCode}';
+
+        throw Exception(errorMessage);
+      }
+    } catch(e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+
+      throw Exception('Push message error: $e');
     }
   }
 

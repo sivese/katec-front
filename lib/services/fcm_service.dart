@@ -18,8 +18,12 @@ class FcmService {
     'Accept': 'application/json',
   };
 
+  static bool init = false;
+
   static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
   FlutterLocalNotificationsPlugin();
+
+  static bool get isAvailable => init;
 
   static Future<void> initFcmService() async {
     //Firebase module loading
@@ -82,6 +86,7 @@ class FcmService {
     });
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    init = true;
   }
 
   @pragma('vm:entry-point')

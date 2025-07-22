@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mercury_front/services/api_service.dart';
 import 'package:mercury_front/services/fcm_service.dart';
 import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
