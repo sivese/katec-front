@@ -343,6 +343,334 @@ class ApiService {
     }
   }
 
+  // 숙박 삭제 API
+  Future<Map<String, dynamic>> deleteAccommodation(
+    String token,
+    String accommodationId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final response = await _client.delete(
+        Uri.parse('$_baseUrl/accommodation/$accommodationId'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to delete accommodation: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Delete accommodation error: $e');
+    }
+  }
+
+  // 숙박 수정 API
+  Future<Map<String, dynamic>> updateAccommodation(
+    String token,
+    String accommodationId, {
+    required String tripId,
+    required String accommodationName,
+    String? description,
+    String? bookingReference,
+    required DateTime checkInDate,
+    required DateTime checkOutDate,
+    required DateTime date,
+  }) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'tripId': tripId,
+        'accommodationName': accommodationName,
+        'description': description ?? '',
+        'bookingReference': bookingReference ?? '',
+        'checkInDate': checkInDate.toUtc().toIso8601String(),
+        'checkOutDate': checkOutDate.toUtc().toIso8601String(),
+        'date': date.toUtc().toIso8601String(),
+      };
+
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/accommodation/$accommodationId'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to update accommodation:  {response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Update accommodation error: $e');
+    }
+  }
+
+  // Transportation 생성 API
+  Future<Map<String, dynamic>> createTransportation(
+    String token,
+    String tripId,
+    String transportationType,
+    String departure,
+    String destination,
+    DateTime departureDateTime,
+    DateTime arrivalDateTime,
+    String? bookingReference,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'transportationType': transportationType,
+        'departure': departure,
+        'destination': destination,
+        'departureDateTime': departureDateTime.toUtc().toIso8601String(),
+        'arrivalDateTime': arrivalDateTime.toUtc().toIso8601String(),
+        'bookingReference': bookingReference ?? '',
+        'tripId': tripId,
+      };
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/transportation/create'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to create transportation: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Create transportation error: $e');
+    }
+  }
+
+  // Transportation 수정 API
+  Future<Map<String, dynamic>> updateTransportation(
+    String token,
+    String transportationId,
+    String transportationType,
+    String departure,
+    String destination,
+    DateTime departureDateTime,
+    DateTime arrivalDateTime,
+    String? bookingReference,
+    String tripId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'transportationType': transportationType,
+        'departure': departure,
+        'destination': destination,
+        'departureDateTime': departureDateTime.toUtc().toIso8601String(),
+        'arrivalDateTime': arrivalDateTime.toUtc().toIso8601String(),
+        'bookingReference': bookingReference ?? '',
+        'tripId': tripId,
+        'date':
+            '${departureDateTime.year}-${departureDateTime.month.toString().padLeft(2, '0')}-${departureDateTime.day.toString().padLeft(2, '0')}T00:00:00',
+      };
+
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/transportation/$transportationId'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to update transportation: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Update transportation error: $e');
+    }
+  }
+
+  // Transportation 삭제 API
+  Future<void> deleteTransportation(
+    String token,
+    String transportationId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+      final response = await _client.delete(
+        Uri.parse('$_baseUrl/transportation/$transportationId'),
+        headers: headers,
+      );
+      if (response.statusCode != 200) {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to delete transportation:  {response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Delete transportation error: $e');
+    }
+  }
+
+  // Other 스케줄 생성 API
+  Future<Map<String, dynamic>> createOtherSchedule(
+    String token,
+    String tripId,
+    String title,
+    String location,
+    DateTime date,
+    String startTime,
+    String endTime,
+    String? description,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'title': title,
+        'location': location,
+        'date':
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+        'startTime': startTime,
+        'endTime': endTime,
+        'description': description ?? '',
+        'tripId': tripId,
+      };
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/subtrips/other/create'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to create other schedule: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Create other schedule error: $e');
+    }
+  }
+
+  // Other Trip(기타 일정) 수정 API
+  Future<Map<String, dynamic>> updateOtherSchedule(
+    String token,
+    String otherSubTripId,
+    String title,
+    String location,
+    DateTime date,
+    String startTime,
+    String endTime,
+    String? description,
+    String tripId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+      final requestBody = {
+        'title': title,
+        'location': location,
+        'date': date.toUtc().toIso8601String(),
+        'startTime': startTime,
+        'endTime': endTime,
+        'description': description ?? '',
+        'tripId': tripId,
+      };
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/subtrips/other/$otherSubTripId'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to update other schedule: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Update other schedule error: $e');
+    }
+  }
+
+  // Other Trip(기타 일정) 삭제 API
+  Future<void> deleteOtherSchedule(String token, String otherSubTripId) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+      final response = await _client.delete(
+        Uri.parse('$_baseUrl/subtrips/other/$otherSubTripId'),
+        headers: headers,
+      );
+      if (response.statusCode != 200) {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to delete other schedule: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Delete other schedule error: $e');
+    }
+  }
+
   // 리소스 정리
   void dispose() {
     _client.close();

@@ -25,6 +25,9 @@ class Activity {
   final String? bookingReference;
   final String? notes;
   final List<String> attachments; // 이미지, 문서 등 첨부파일
+  final int? transportationType; // 교통수단 인덱스(0~5)
+  final String? departure; // 출발지
+  final String? destination; // 도착지
 
   Activity({
     required this.id,
@@ -38,6 +41,9 @@ class Activity {
     this.bookingReference,
     this.notes,
     this.attachments = const [],
+    this.transportationType,
+    this.departure,
+    this.destination,
   });
 
   // 활동 기간 계산 (시간 단위)

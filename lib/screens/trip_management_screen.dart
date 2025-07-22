@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/trip.dart';
-import '../models/activity.dart';
 import '../services/api_service.dart';
 import '../services/token_service.dart';
 import '../widgets/trip_list_widget.dart';

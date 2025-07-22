@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/trip.dart';
 import '../services/token_service.dart';
 import '../services/api_service.dart';
-import 'trip_management_screen.dart';
 import 'trip_detail_screen.dart'; // Added import for TripDetailScreen
 
 class CreateTripScreen extends StatefulWidget {

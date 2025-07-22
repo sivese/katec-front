@@ -5,7 +5,7 @@ import '../services/api_service.dart';
 import '../services/token_service.dart';
 import '../widgets/activity_filter_widget.dart';
 import 'trip_management_screen.dart'; // Added import for TripManagementScreen
-import 'add_accommodation_screen.dart'; // Added import for AddAccommodationScreen
+import 'add_schedule_screen.dart';
 
 class TripDetailScreen extends StatefulWidget {
   final Trip trip;
@@ -44,6 +44,8 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       if (token == null) throw Exception('Authentication token not found');
       final apiService = ApiService();
       final response = await apiService.getTripDetails(token, widget.trip.id);
+      print('Trip Detail API response:');
+      print(response);
       // trip 정보 파싱
       final tripJson = response['trip'] as Map<String, dynamic>;
       final trip = Trip(
@@ -55,23 +57,115 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         status: TripStatus.planning, // 필요시 매핑
         description: '',
       );
-      // 숙박 리스트 파싱 (accommodations)
-      final accommodations =
-          (response['subTrips']?['accommodations'] as List<dynamic>? ?? []);
-      final activities = accommodations.map((a) {
-        return Activity(
-          id: a['subTripId'] ?? '',
-          title: a['accommodationName'] ?? '',
-          description: a['description'] ?? '',
-          type: ActivityType.accommodation,
-          status: ActivityStatus.planned, // 필요시 매핑
-          startTime: DateTime.parse(a['checkInDate']),
-          endTime: DateTime.parse(a['checkOutDate']),
-          location: trip.destination,
-          bookingReference: a['bookingReference'],
-          notes: null,
-        );
-      }).toList();
+      // 모든 subTrips를 type 필드로 구분하여 파싱
+      final activities = <Activity>[];
+      final subTripsData = response['subTrips'];
+      List<dynamic> allSubTrips = [];
+      if (subTripsData is Map<String, dynamic>) {
+        final accommodations =
+            (subTripsData['accommodations'] as List<dynamic>? ?? []);
+        final transportations =
+            (subTripsData['transportations'] as List<dynamic>? ?? []);
+        final others = (subTripsData['otherSubTrips'] as List<dynamic>? ?? []);
+        allSubTrips = [...accommodations, ...transportations, ...others];
+      } else if (subTripsData is List<dynamic>) {
+        allSubTrips = subTripsData;
+      }
+
+      for (final subTrip in allSubTrips) {
+        final typeRaw = subTrip['type'];
+        String type = typeRaw is String ? typeRaw : '';
+        switch (type) {
+          case 'Accommodation':
+            activities.add(
+              Activity(
+                id: subTrip['subTripId'] ?? subTrip['_id'] ?? '',
+                title: subTrip['accommodationName'] ?? subTrip['title'] ?? '',
+                description: subTrip['description'] ?? '',
+                type: ActivityType.accommodation,
+                status: ActivityStatus.planned,
+                startTime: DateTime.parse(
+                  subTrip['checkInDate'] ?? subTrip['date'],
+                ),
+                endTime: DateTime.parse(
+                  subTrip['checkOutDate'] ?? subTrip['date'],
+                ),
+                location: subTrip['location'] ?? '',
+                bookingReference: subTrip['bookingReference'],
+                notes: null,
+              ),
+            );
+            break;
+          case 'Transportation':
+            activities.add(
+              Activity(
+                id: subTrip['subTripId'] ?? subTrip['_id'] ?? '',
+                title:
+                    '${subTrip['transportationType'] ?? ''} - ${subTrip['departure'] ?? ''} to ${subTrip['destination'] ?? ''}',
+                description: subTrip['bookingReference'] ?? '',
+                type: ActivityType.transportation,
+                status: ActivityStatus.planned,
+                startTime: DateTime.parse(
+                  subTrip['departureDateTime'] ?? subTrip['date'],
+                ),
+                endTime: DateTime.parse(
+                  subTrip['arrivalDateTime'] ?? subTrip['date'],
+                ),
+                location:
+                    '${subTrip['departure'] ?? ''} → ${subTrip['destination'] ?? ''}',
+                bookingReference: subTrip['bookingReference'],
+                notes: null,
+                transportationType: subTrip['transportationType'] is int
+                    ? subTrip['transportationType']
+                    : int.tryParse(
+                        subTrip['transportationType']?.toString() ?? '',
+                      ),
+                departure: subTrip['departure'] ?? '',
+                destination: subTrip['destination'] ?? '',
+              ),
+            );
+            break;
+          case 'Dining':
+            // TODO: Dining 타입 파싱 필요시 구현
+            break;
+          case 'Other':
+            final date = DateTime.parse(subTrip['date']);
+            final startTimeParts = (subTrip['startTime'] as String).split(':');
+            final endTimeParts = (subTrip['endTime'] as String).split(':');
+            final startDateTime = DateTime(
+              date.year,
+              date.month,
+              date.day,
+              int.parse(startTimeParts[0]),
+              int.parse(startTimeParts[1]),
+            );
+            final endDateTime = DateTime(
+              date.year,
+              date.month,
+              date.day,
+              int.parse(endTimeParts[0]),
+              int.parse(endTimeParts[1]),
+            );
+            activities.add(
+              Activity(
+                id: subTrip['_id'] ?? '',
+                title: subTrip['title'] ?? '',
+                description: subTrip['description'] ?? '',
+                type: ActivityType.activity,
+                status: ActivityStatus.planned,
+                startTime: startDateTime,
+                endTime: endDateTime,
+                location: subTrip['location'] ?? '',
+                bookingReference: null,
+                notes: null,
+              ),
+            );
+            break;
+          default:
+            // Unknown type, 무시
+            break;
+        }
+      }
       setState(() {
         _tripDetail = trip;
         _activities = activities;
@@ -254,7 +348,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) =>
-                  AddAccommodationScreen(trip: _tripDetail ?? widget.trip),
+                  AddScheduleScreen(trip: _tripDetail ?? widget.trip),
             ),
           );
           if (result == true) {
@@ -570,12 +664,15 @@ class _TripDetailScreenState extends State<TripDetailScreen>
 
   Widget _buildActivityCard(Activity activity) {
     if (activity.type == ActivityType.accommodation) {
-      // 숙박 전용 카드
+      // 숙박 전용 카드 (아코디언)
       final nights = activity.endTime.difference(activity.startTime).inDays;
       return Card(
         color: const Color(0xFF2A2A2A),
         margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          collapsedIconColor: Colors.white,
+          iconColor: Colors.white,
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -591,29 +688,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               fontWeight: FontWeight.w500,
             ),
           ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_formatDate(activity.startTime)} ~ ${_formatDate(activity.endTime)} (${nights}박)',
-                style: const TextStyle(
-                  color: Colors.blue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (activity.bookingReference != null &&
-                  activity.bookingReference!.isNotEmpty)
-                Text(
-                  'Booking: ${activity.bookingReference}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              if (activity.description.isNotEmpty)
-                Text(
-                  activity.description,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-            ],
+          subtitle: Text(
+            '${_formatDate(activity.startTime)} ~ ${_formatDate(activity.endTime)} ($nights박)',
+            style: const TextStyle(
+              color: Colors.blue,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -630,6 +711,644 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               ),
             ),
           ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: 8,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (activity.bookingReference != null &&
+                      activity.bookingReference!.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          'Booking: ${activity.bookingReference}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (activity.location.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          'Location: ${activity.location}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (activity.description.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          activity.description,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Check-in: ${_formatDate(activity.startTime)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Check-out: ${_formatDate(activity.endTime)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        // 수정 모드로 이동
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => AddScheduleScreen(
+                              trip: _tripDetail ?? widget.trip,
+                              accommodation: activity,
+                            ),
+                          ),
+                        );
+                        if (result == true) {
+                          _fetchTripDetails();
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.edit,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Edit',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _deleteAccommodation(activity);
+                      },
+                      icon: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (activity.type == ActivityType.transportation) {
+      // 교통 전용 카드 (아코디언)
+      final duration = activity.endTime.difference(activity.startTime);
+      return Card(
+        color: const Color(0xFF2A2A2A),
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          collapsedIconColor: Colors.white,
+          iconColor: Colors.white,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.directions_car,
+              color: Colors.green,
+              size: 20,
+            ),
+          ),
+          title: Text(
+            activity.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            '${_formatDate(activity.startTime)} ${_formatTime(activity.startTime)} - ${_formatTime(activity.endTime)}',
+            style: const TextStyle(
+              color: Colors.green,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Transport',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: 8,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (activity.bookingReference != null &&
+                      activity.bookingReference!.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          'Booking: ${activity.bookingReference}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (activity.location.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          'Route: ${activity.location}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Departure: ${_formatDate(activity.startTime)} ${_formatTime(activity.startTime)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Arrival: ${_formatDate(activity.endTime)} ${_formatTime(activity.endTime)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        // 수정 모드로 이동
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => AddScheduleScreen(
+                              trip: _tripDetail ?? widget.trip,
+                              transportation: activity,
+                            ),
+                          ),
+                        );
+                        if (result == true) {
+                          _fetchTripDetails();
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.edit,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Edit',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        // 삭제 확인 다이얼로그
+                        final shouldDelete = await showDialog<bool>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor: const Color(0xFF2A2A2A),
+                              title: const Text(
+                                'Delete Transportation',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              content: Text(
+                                'Are you sure you want to delete "${activity.title}"? This action cannot be undone.',
+                                style: const TextStyle(
+                                  color: Color(0xFFCCCCCC),
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
+                                  child: const Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (shouldDelete != true) return;
+                        try {
+                          final token = await TokenService.getToken();
+                          if (token == null) {
+                            throw Exception('Authentication token not found');
+                          }
+                          final apiService = ApiService();
+                          await apiService.deleteTransportation(
+                            token,
+                            activity.id,
+                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Transportation deleted successfully!',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            _fetchTripDetails();
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Failed to delete transportation:  ${e.toString()}',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (activity.type == ActivityType.activity) {
+      // 기타(Other) 전용 카드 (아코디언)
+      return Card(
+        color: const Color(0xFF2A2A2A),
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          collapsedIconColor: Colors.white,
+          iconColor: Colors.white,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.event, color: Colors.orange, size: 20),
+          ),
+          title: Text(
+            activity.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            '${_formatDate(activity.startTime)} ${_formatTime(activity.startTime)} - ${_formatTime(activity.endTime)}',
+            style: const TextStyle(
+              color: Colors.orange,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Other',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: 8,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (activity.location.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          'Location: ${activity.location}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (activity.description.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          activity.description,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Start: ${_formatDate(activity.startTime)} ${_formatTime(activity.startTime)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'End: ${_formatDate(activity.endTime)} ${_formatTime(activity.endTime)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        // 수정 모드로 이동
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => AddScheduleScreen(
+                              trip: _tripDetail ?? widget.trip,
+                              other: activity,
+                            ),
+                          ),
+                        );
+                        if (result == true) {
+                          _fetchTripDetails();
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.edit,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Edit',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        // 삭제 확인 다이얼로그
+                        final shouldDelete = await showDialog<bool>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor: const Color(0xFF2A2A2A),
+                              title: const Text(
+                                'Delete Other Schedule',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              content: Text(
+                                'Are you sure you want to delete "${activity.title}"? This action cannot be undone.',
+                                style: const TextStyle(
+                                  color: Color(0xFFCCCCCC),
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
+                                  child: const Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (shouldDelete != true) return;
+                        try {
+                          final token = await TokenService.getToken();
+                          if (token == null) {
+                            throw Exception('Authentication token not found');
+                          }
+                          final apiService = ApiService();
+                          await apiService.deleteOtherSchedule(
+                            token,
+                            activity.id,
+                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Other schedule deleted successfully!',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            _fetchTripDetails();
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Failed to delete other schedule: ${e.toString()}',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -711,5 +1430,139 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         });
       },
     );
+  }
+
+  // 숙박 옵션 다이얼로그 표시
+  void _showAccommodationOptions(Activity accommodation) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF2A2A2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              accommodation.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.blue),
+              title: const Text('Edit', style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                Navigator.pop(context);
+                // 수정 모드로 이동
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => AddScheduleScreen(
+                      trip: _tripDetail ?? widget.trip,
+                      accommodation: accommodation,
+                    ),
+                  ),
+                );
+                if (result == true) {
+                  _fetchTripDetails();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteAccommodation(accommodation);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 숙박 삭제 기능
+  Future<void> _deleteAccommodation(Activity accommodation) async {
+    // 삭제 확인 다이얼로그
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2A2A2A),
+          title: const Text(
+            'Delete Accommodation',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${accommodation.title}"? This action cannot be undone.',
+            style: const TextStyle(color: Color(0xFFCCCCCC)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      // 토큰 가져오기
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      // API 서비스를 통한 숙박 삭제
+      final apiService = ApiService();
+      await apiService.deleteAccommodation(token, accommodation.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Accommodation deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // 숙박 목록 새로고침
+        _fetchTripDetails();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete accommodation: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
