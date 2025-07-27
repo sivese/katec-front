@@ -27,3 +27,7 @@ flutter:
 
   assets:
     - .env
+
+# 웹 플랫폼 지원 명시
+flutter_web:
+  enabled: true

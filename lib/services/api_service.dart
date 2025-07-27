@@ -7,19 +7,19 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  // HTTP 클라이언트 설정
+  // HTTP client configuration
   final http.Client _client = http.Client();
 
-  // 기본 헤더
+  // Default headers
   Map<String, String> get _defaultHeaders => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
 
-  // API URL 가져오기
+  // Get API URL
   String get _baseUrl => EnvConfig.apiUrl;
 
-  // 로그인 API
+  // Login API
   Future<Map<String, dynamic>> login(String userId, String password) async {
     try {
       final response = await _client.post(
@@ -31,7 +31,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ?? 'Login failed: ${response.statusCode}';
@@ -45,7 +45,7 @@ class ApiService {
     }
   }
 
-  // 회원가입 API
+  // Registration API
   Future<Map<String, dynamic>> register(
     String userId,
     String name,
@@ -67,7 +67,7 @@ class ApiService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -82,7 +82,7 @@ class ApiService {
     }
   }
 
-  // 여행 목록 조회 예시
+  // Get trips list example
   Future<List<Map<String, dynamic>>> getTrips() async {
     try {
       final response = await _client.get(
@@ -101,7 +101,7 @@ class ApiService {
     }
   }
 
-  // 사용자 프로필 조회 API
+  // Get user profile API
   Future<Map<String, dynamic>> getUserProfile(String token) async {
     try {
       final headers = Map<String, String>.from(_defaultHeaders);
@@ -115,7 +115,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -148,7 +148,7 @@ class ApiService {
     }
   }
 
-  // Trip 생성 API
+  // Create Trip API
   Future<Map<String, dynamic>> createTrip(
     String token,
     String tripName,
@@ -176,7 +176,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -191,7 +191,7 @@ class ApiService {
     }
   }
 
-  // Trip 목록 조회 API
+  // Get Trip List API
   Future<Map<String, dynamic>> getTripList(String token) async {
     try {
       final headers = Map<String, String>.from(_defaultHeaders);
@@ -205,7 +205,7 @@ class ApiService {
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
 
-        // 디버깅: 응답 데이터 출력
+        // Debug: Print response data
         print('=== Trip List API Response ===');
         print('Status Code: ${response.statusCode}');
         print('Response Body: ${response.body}');
@@ -226,7 +226,7 @@ class ApiService {
 
         return responseData;
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -241,7 +241,7 @@ class ApiService {
     }
   }
 
-  // Trip 삭제 API
+  // Delete Trip API
   Future<Map<String, dynamic>> deleteTrip(String token, String tripId) async {
     try {
       final headers = Map<String, String>.from(_defaultHeaders);
@@ -255,7 +255,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -270,7 +270,7 @@ class ApiService {
     }
   }
 
-  // 숙박 생성 API
+  // Create Accommodation API
   Future<Map<String, dynamic>> createAccommodation(
     String token,
     String tripId,
@@ -304,7 +304,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -343,7 +343,7 @@ class ApiService {
     }
   }
 
-  // 숙박 삭제 API
+  // Delete Accommodation API
   Future<Map<String, dynamic>> deleteAccommodation(
     String token,
     String accommodationId,
@@ -360,7 +360,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        // Use server error message if available
         final errorBody = json.decode(response.body);
         final errorMessage =
             errorBody['message'] ??
@@ -375,7 +375,7 @@ class ApiService {
     }
   }
 
-  // 숙박 수정 API
+  // Update Accommodation API
   Future<Map<String, dynamic>> updateAccommodation(
     String token,
     String accommodationId, {
