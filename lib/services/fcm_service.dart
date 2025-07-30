@@ -19,8 +19,12 @@ class FcmService {
     'Accept': 'application/json',
   };
 
+  static bool init = false;
+
   static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  static bool get isAvailable => init;
 
   static Future<void> initFcmService() async {
     // 웹 플랫폼에서는 FCM 기능을 지원하지 않으므로 초기화를 건너뜀
@@ -104,6 +108,7 @@ class FcmService {
     });
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    init = true;
   }
 
   @pragma('vm:entry-point')
