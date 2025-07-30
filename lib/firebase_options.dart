@@ -41,49 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBIavx0fbCHdeMAIc2gL-K25a22bnss-KY',
-    appId: '1:851175873846:web:ded5ceb8a208cff60fa797',
-    messagingSenderId: '851175873846',
-    projectId: 'katec-mercury-d8d3f',
-    authDomain: 'katec-mercury-d8d3f.firebaseapp.com',
-    storageBucket: 'katec-mercury-d8d3f.firebasestorage.app',
-    measurementId: 'G-Q0043RCXH2',
+    apiKey: 'AIzaSyAhhpyXcziZD1A0CPaPB6iJu7zgmuxTk5c',
+    appId: '1:702343125251:web:880b8069339aa28bab7136',
+    messagingSenderId: '702343125251',
+    projectId: 'katec-mercury-16772',
+    authDomain: 'katec-mercury-16772.firebaseapp.com',
+    storageBucket: 'katec-mercury-16772.firebasestorage.app',
+    measurementId: 'G-5E58FYVXP3',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCrmlirU664QVTmfYFWowKOtO6plpuh2KA',
-    appId: '1:851175873846:android:ff4a845b7e26fe4f0fa797',
-    messagingSenderId: '851175873846',
-    projectId: 'katec-mercury-d8d3f',
-    storageBucket: 'katec-mercury-d8d3f.firebasestorage.app',
+    apiKey: 'AIzaSyCxDPmHN97E7C-CgF5U0xmIJdLBJo0x3LM',
+    appId: '1:702343125251:android:f4077573cf33be96ab7136',
+    messagingSenderId: '702343125251',
+    projectId: 'katec-mercury-16772',
+    storageBucket: 'katec-mercury-16772.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCQYlga377UivDcSsZm8smSKtiIrZLZpEw',
-    appId: '1:851175873846:ios:8027d7a63e434c940fa797',
-    messagingSenderId: '851175873846',
-    projectId: 'katec-mercury-d8d3f',
-    storageBucket: 'katec-mercury-d8d3f.firebasestorage.app',
+    apiKey: 'AIzaSyD7hfCO-UI0eVeJVXldGy9q22nfrEq3GNs',
+    appId: '1:702343125251:ios:c06fc99dc8d6f401ab7136',
+    messagingSenderId: '702343125251',
+    projectId: 'katec-mercury-16772',
+    storageBucket: 'katec-mercury-16772.firebasestorage.app',
     iosBundleId: 'com.example.mercuryFront',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCQYlga377UivDcSsZm8smSKtiIrZLZpEw',
-    appId: '1:851175873846:ios:8027d7a63e434c940fa797',
-    messagingSenderId: '851175873846',
-    projectId: 'katec-mercury-d8d3f',
-    storageBucket: 'katec-mercury-d8d3f.firebasestorage.app',
+    apiKey: 'AIzaSyD7hfCO-UI0eVeJVXldGy9q22nfrEq3GNs',
+    appId: '1:702343125251:ios:c06fc99dc8d6f401ab7136',
+    messagingSenderId: '702343125251',
+    projectId: 'katec-mercury-16772',
+    storageBucket: 'katec-mercury-16772.firebasestorage.app',
     iosBundleId: 'com.example.mercuryFront',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBIavx0fbCHdeMAIc2gL-K25a22bnss-KY',
-    appId: '1:851175873846:web:7b76c9dd51668c730fa797',
-    messagingSenderId: '851175873846',
-    projectId: 'katec-mercury-d8d3f',
-    authDomain: 'katec-mercury-d8d3f.firebaseapp.com',
-    storageBucket: 'katec-mercury-d8d3f.firebasestorage.app',
-    measurementId: 'G-F22XVEWVQF',
+    apiKey: 'AIzaSyAhhpyXcziZD1A0CPaPB6iJu7zgmuxTk5c',
+    appId: '1:702343125251:web:f628d3fa9c7978b2ab7136',
+    messagingSenderId: '702343125251',
+    projectId: 'katec-mercury-16772',
+    authDomain: 'katec-mercury-16772.firebaseapp.com',
+    storageBucket: 'katec-mercury-16772.firebasestorage.app',
+    measurementId: 'G-RCKDFNW9N2',
   );
 
 }

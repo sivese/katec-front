@@ -16,8 +16,6 @@ Future<void> main() async {
   if(Platform.isAndroid) {
     await FcmService.initFcmService();
   }
-
-  runApp(const MainApp());
 }
 
 class MainApp extends StatelessWidget {
