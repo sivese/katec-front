@@ -427,14 +427,14 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                       Expanded(
                         child: _buildInfoItem(
                           Icons.calendar_today,
-                          '시작일',
+                          'Start Date',
                           _formatDate(trip.startDate),
                         ),
                       ),
                       Expanded(
                         child: _buildInfoItem(
                           Icons.calendar_today,
-                          '종료일',
+                          'End Date',
                           _formatDate(trip.endDate),
                         ),
                       ),
@@ -689,7 +689,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             ),
           ),
           subtitle: Text(
-            '${_formatDate(activity.startTime)} ~ ${_formatDate(activity.endTime)} ($nights박)',
+            '${_formatDate(activity.startTime)} ~ ${_formatDate(activity.endTime)} ($nights nights)',
             style: const TextStyle(
               color: Colors.blue,
               fontSize: 13,
@@ -703,7 +703,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Text(
-              '숙박',
+              'Accommodation',
               style: TextStyle(
                 color: Colors.blue,
                 fontSize: 10,
@@ -1414,7 +1414,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}년 ${date.month}월 ${date.day}일';
+    return '${date.month}/${date.day}/${date.year}';
   }
 
   String _formatTime(DateTime time) {

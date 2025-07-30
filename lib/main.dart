@@ -7,15 +7,14 @@ import 'package:mercury_front/services/fcm_service.dart';
 import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 Future<void> main() async {
   // 환경변수 파일 로드
   await dotenv.load(fileName: ".env");
 
-  //Platform check for messaging service
-  if(Platform.isAndroid) {
-    await FcmService.initFcmService();
-  }
+  // FCM 서비스 초기화 (웹에서는 내부적으로 처리됨)
+  await FcmService.initFcmService();
 
   runApp(const MainApp());
 }

@@ -6,7 +6,7 @@ enum TravelStatus { noTravel, ongoingTravel, upcomingTravel }
 
 class TravelStatusWidget extends StatelessWidget {
   final TravelStatus status;
-  final Trip? trip; // 실제 Trip 데이터 추가
+  final Trip? trip; // Add actual Trip data
   final VoidCallback? onCreateTrip;
 
   const TravelStatusWidget({
