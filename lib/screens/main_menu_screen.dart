@@ -8,6 +8,7 @@ import '../widgets/empty_button_widget.dart';
 import 'trip_management_screen.dart';
 import 'create_trip_screen.dart';
 import 'login_screen.dart';
+import 'profile_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   final String token;
@@ -271,7 +272,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               ),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: 프로필 화면으로 이동
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(token: widget.token),
+                  ),
+                );
               },
             ),
             const Divider(color: Color(0xFF444444)),

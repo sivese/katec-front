@@ -131,6 +131,80 @@ class ApiService {
     }
   }
 
+  // Update user profile API (name only)
+  Future<Map<String, dynamic>> updateUserProfile(
+    String token,
+    String name,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {'name': name};
+
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/user/profile'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // Use server error message if available
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to update user profile: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Update user profile error: $e');
+    }
+  }
+
+  // Change password API
+  Future<Map<String, dynamic>> changePassword(
+    String token,
+    String currentPassword,
+    String newPassword,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      };
+
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/user/profile'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // Use server error message if available
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to change password: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Change password error: $e');
+    }
+  }
+
   // Health Check API
   Future<Map<String, dynamic>> healthCheck() async {
     try {
@@ -151,37 +225,39 @@ class ApiService {
 
   // Push Message API
   Future<Map<String, dynamic>> pushMessage(
-      String title,
-      String message,
-      DateTime pushTime
-      ) async {
-    if(FcmService.isAvailable == false) {
+    String title,
+    String message,
+    DateTime pushTime,
+  ) async {
+    if (FcmService.isAvailable == false) {
       throw Exception("Platform doesn't support Firebase Cloud Messaging");
     }
 
     try {
       final token = FcmService.fcmToken;
       final requestBody = {
-        'Title' : title,
-        'Message' : message,
-        'PushTime' : pushTime.toUtc().toIso8601String()
+        'Title': title,
+        'Message': message,
+        'PushTime': pushTime.toUtc().toIso8601String(),
       };
 
       final response = await _client.post(
-          Uri.parse('$_baseUrl/push_message/$token'),
-          headers: _defaultHeaders,
-          body: json.encode(requestBody)
+        Uri.parse('$_baseUrl/push_message/$token'),
+        headers: _defaultHeaders,
+        body: json.encode(requestBody),
       );
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
         final errorBody = json.decode(response.body);
-        final errorMessage = errorBody['message'] ?? 'Failed to push message alarm: ${response.statusCode}';
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to push message alarm: ${response.statusCode}';
 
         throw Exception(errorMessage);
       }
-    } catch(e) {
+    } catch (e) {
       if (e is FormatException) {
         throw Exception('Invalid response format from server');
       }
