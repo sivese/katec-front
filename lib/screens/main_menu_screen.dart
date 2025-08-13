@@ -274,7 +274,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Navigator.pop(context);
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => ProfileScreen(token: widget.token),
+                    builder: (context) => ProfileScreen(
+                      token: widget.token,
+                      onProfileUpdated: _refreshUserProfile,
+                    ),
                   ),
                 );
               },

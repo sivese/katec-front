@@ -5,8 +5,9 @@ import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String token;
+  final VoidCallback? onProfileUpdated;
 
-  const ProfileScreen({super.key, required this.token});
+  const ProfileScreen({super.key, required this.token, this.onProfileUpdated});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -83,6 +84,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         // 사용자 이름 저장
         await TokenService.saveUserName(_nameController.text);
+
+        // 콜백 함수 호출하여 메인 페이지 상태 업데이트
+        widget.onProfileUpdated?.call();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

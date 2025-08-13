@@ -788,6 +788,39 @@ class ApiService {
     }
   }
 
+  // Trip 정보 업데이트 API
+  Future<Map<String, dynamic>> updateTrip(
+    String token,
+    String tripId,
+    Map<String, dynamic> updateData,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/trip/$tripId'),
+        headers: headers,
+        body: json.encode(updateData),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to update trip: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Update trip error: $e');
+    }
+  }
+
   // 리소스 정리
   void dispose() {
     _client.close();

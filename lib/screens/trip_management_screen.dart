@@ -14,11 +14,15 @@ class TripManagementScreen extends StatefulWidget {
   State<TripManagementScreen> createState() => _TripManagementScreenState();
 }
 
-class _TripManagementScreenState extends State<TripManagementScreen> {
+class _TripManagementScreenState extends State<TripManagementScreen>
+    with SingleTickerProviderStateMixin {
   List<Trip> _trips = [];
   bool _isLoading = true;
   String? _error;
   bool _hasChanges = false; // 변경사항 추적
+  late TabController _tabController;
+  List<Trip> _activeTrips = [];
+  List<Trip> _completedTrips = [];
 
   Trip _fromApiJson(Map<String, dynamic> json) {
     // tripId 필드 확인을 위한 디버깅
@@ -56,7 +60,14 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadTrips();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -64,6 +75,35 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
     super.didChangeDependencies();
     // 화면이 포커스를 받을 때마다 Trip 데이터 새로고침
     _loadTrips();
+  }
+
+  void _categorizeTrips() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    _activeTrips = _trips.where((trip) {
+      final endDate = DateTime(
+        trip.endDate.year,
+        trip.endDate.month,
+        trip.endDate.day,
+      );
+      return endDate.isAfter(today) || endDate.isAtSameMomentAs(today);
+    }).toList();
+
+    _completedTrips = _trips.where((trip) {
+      final endDate = DateTime(
+        trip.endDate.year,
+        trip.endDate.month,
+        trip.endDate.day,
+      );
+      return endDate.isBefore(today);
+    }).toList();
+
+    // 각 카테고리 내에서 시작일 기준으로 정렬
+    _activeTrips.sort((a, b) => a.startDate.compareTo(b.startDate));
+    _completedTrips.sort(
+      (a, b) => b.endDate.compareTo(a.endDate),
+    ); // 완료된 여행은 최근 완료된 순으로
   }
 
   Future<void> _loadTrips() async {
@@ -88,13 +128,13 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
           .map((e) => _fromApiJson(e as Map<String, dynamic>))
           .toList();
 
-      // 시작일 기준으로 정렬 (가장 가까운 여행이 먼저 오도록)
-      trips.sort((a, b) => a.startDate.compareTo(b.startDate));
-
       setState(() {
         _trips = trips;
         _isLoading = false;
       });
+
+      // 여행을 카테고리별로 분류
+      _categorizeTrips();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -166,6 +206,16 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
               onPressed: _loadTrips,
             ),
           ],
+          bottom: TabBar(
+            controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.white,
+            tabs: [
+              Tab(text: 'Active/Planned (${_activeTrips.length})'),
+              Tab(text: 'Completed (${_completedTrips.length})'),
+            ],
+          ),
         ),
         body: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -180,19 +230,18 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 여행 목록 제목
-              const Text(
-                'My Trip List',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              // 탭바 뷰
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // 진행중/예정인 여행 탭
+                    _buildActiveTripsTab(),
+                    // 완료된 여행 탭
+                    _buildCompletedTripsTab(),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // 여행 목록
-              Expanded(child: _buildTripListContent()),
             ],
           ),
         ),
@@ -200,7 +249,43 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
     );
   }
 
-  Widget _buildTripListContent() {
+  Widget _buildActiveTripsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Active/Planned Trips',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(child: _buildTripListContent(_activeTrips)),
+      ],
+    );
+  }
+
+  Widget _buildCompletedTripsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Completed Trips',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(child: _buildTripListContent(_completedTrips)),
+      ],
+    );
+  }
+
+  Widget _buildTripListContent(List<Trip> trips) {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -228,7 +313,7 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
       );
     }
 
-    if (_trips.isEmpty) {
+    if (trips.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -249,6 +334,6 @@ class _TripManagementScreenState extends State<TripManagementScreen> {
       );
     }
 
-    return TripListWidget(trips: _trips, onTripTap: _onTripTap);
+    return TripListWidget(trips: trips, onTripTap: _onTripTap);
   }
 }

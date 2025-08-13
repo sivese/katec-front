@@ -52,8 +52,64 @@ class _TripCard extends StatelessWidget {
 
   const _TripCard({required this.trip, this.onTap});
 
+  // 현재 날짜 기준으로 여행 상태를 계산
+  TripStatus _calculateCurrentStatus() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(
+      trip.startDate.year,
+      trip.startDate.month,
+      trip.startDate.day,
+    );
+    final endDate = DateTime(
+      trip.endDate.year,
+      trip.endDate.month,
+      trip.endDate.day,
+    );
+
+    if (endDate.isBefore(today)) {
+      return TripStatus.completed;
+    } else if (startDate.isAfter(today)) {
+      return TripStatus.planning;
+    } else {
+      return TripStatus.ongoing;
+    }
+  }
+
+  // 상태에 따른 색상 반환
+  Color _getStatusColor(TripStatus status) {
+    switch (status) {
+      case TripStatus.planning:
+        return const Color(0xFF4CAF50); // 초록색
+      case TripStatus.ongoing:
+        return const Color(0xFF2196F3); // 파란색
+      case TripStatus.completed:
+        return const Color(0xFF9E9E9E); // 회색
+      default:
+        return const Color(0xFF4CAF50);
+    }
+  }
+
+  // 상태에 따른 표시 텍스트 반환
+  String _getStatusText(TripStatus status) {
+    switch (status) {
+      case TripStatus.planning:
+        return 'Planned';
+      case TripStatus.ongoing:
+        return 'Ongoing';
+      case TripStatus.completed:
+        return 'Completed';
+      default:
+        return 'Planned';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentStatus = _calculateCurrentStatus();
+    final statusColor = _getStatusColor(currentStatus);
+    final statusText = _getStatusText(currentStatus);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       color: const Color(0xFF2A2A2A),
@@ -87,16 +143,16 @@ class _TripCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: trip.status.color.withOpacity(0.2),
+                      color: statusColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: trip.status.color, width: 1),
+                      border: Border.all(color: statusColor, width: 1),
                     ),
                     child: Text(
-                      trip.status.displayName,
+                      statusText,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: trip.status.color,
+                        color: statusColor,
                       ),
                     ),
                   ),

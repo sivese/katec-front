@@ -6,6 +6,7 @@ import '../services/token_service.dart';
 import '../widgets/activity_filter_widget.dart';
 import 'trip_management_screen.dart'; // Added import for TripManagementScreen
 import 'add_schedule_screen.dart';
+import 'edit_trip_screen.dart';
 
 class TripDetailScreen extends StatefulWidget {
   final Trip trip;
@@ -185,6 +186,61 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     super.dispose();
   }
 
+  // 현재 날짜 기준으로 여행 상태를 계산
+  TripStatus _calculateCurrentStatus() {
+    final trip = _tripDetail ?? widget.trip;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(
+      trip.startDate.year,
+      trip.startDate.month,
+      trip.startDate.day,
+    );
+    final endDate = DateTime(
+      trip.endDate.year,
+      trip.endDate.month,
+      trip.endDate.day,
+    );
+
+    if (endDate.isBefore(today)) {
+      return TripStatus.completed;
+    } else if (startDate.isAfter(today)) {
+      return TripStatus.planning;
+    } else {
+      return TripStatus.ongoing;
+    }
+  }
+
+  // 상태에 따른 색상 반환
+  Color _getCurrentStatusColor() {
+    final status = _calculateCurrentStatus();
+    switch (status) {
+      case TripStatus.planning:
+        return const Color(0xFF4CAF50); // 초록색
+      case TripStatus.ongoing:
+        return const Color(0xFF2196F3); // 파란색
+      case TripStatus.completed:
+        return const Color(0xFF9E9E9E); // 회색
+      default:
+        return const Color(0xFF4CAF50);
+    }
+  }
+
+  // 상태에 따른 표시 텍스트 반환
+  String _getCurrentStatusText() {
+    final status = _calculateCurrentStatus();
+    switch (status) {
+      case TripStatus.planning:
+        return 'Planned';
+      case TripStatus.ongoing:
+        return 'Ongoing';
+      case TripStatus.completed:
+        return 'Completed';
+      default:
+        return 'Planned';
+    }
+  }
+
   Future<void> _deleteTrip() async {
     // 삭제 확인 다이얼로그
     final shouldDelete = await showDialog<bool>(
@@ -291,14 +347,18 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () {
-              // TODO: Navigate to trip edit screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Trip edit feature coming soon.'),
-                  backgroundColor: Colors.blue,
+            onPressed: () async {
+              // 여행 수정 화면으로 이동
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      EditTripScreen(trip: _tripDetail ?? widget.trip),
                 ),
               );
+              // 수정이 성공했으면 여행 정보 새로고침
+              if (result == true) {
+                _fetchTripDetails();
+              }
             },
           ),
           IconButton(
@@ -342,22 +402,24 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 _buildNotesTab(),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          // 숙박 Activity 추가 화면으로 이동 후 복귀 시 새로고침
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  AddScheduleScreen(trip: _tripDetail ?? widget.trip),
+      floatingActionButton: _calculateCurrentStatus() == TripStatus.completed
+          ? null // 완료된 여행에서는 FAB 숨김
+          : FloatingActionButton(
+              onPressed: () async {
+                // 숙박 Activity 추가 화면으로 이동 후 복귀 시 새로고침
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        AddScheduleScreen(trip: _tripDetail ?? widget.trip),
+                  ),
+                );
+                if (result == true) {
+                  _fetchTripDetails();
+                }
+              },
+              backgroundColor: Colors.blue,
+              child: const Icon(Icons.add, color: Colors.white),
             ),
-          );
-          if (result == true) {
-            _fetchTripDetails();
-          }
-        },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 
@@ -380,7 +442,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                     children: [
                       Icon(
                         Icons.location_on,
-                        color: trip.status.color,
+                        color: _getCurrentStatusColor(),
                         size: 24,
                       ),
                       const SizedBox(width: 8),
@@ -400,13 +462,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: trip.status.color.withOpacity(0.2),
+                          color: _getCurrentStatusColor().withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          trip.status.displayName,
+                          _getCurrentStatusText(),
                           style: TextStyle(
-                            color: trip.status.color,
+                            color: _getCurrentStatusColor(),
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -782,73 +844,74 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        // 수정 모드로 이동
-                        final result = await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => AddScheduleScreen(
-                              trip: _tripDetail ?? widget.trip,
-                              accommodation: activity,
+            if (_calculateCurrentStatus() != TripStatus.completed)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // 수정 모드로 이동
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => AddScheduleScreen(
+                                trip: _tripDetail ?? widget.trip,
+                                accommodation: activity,
+                              ),
                             ),
+                          );
+                          if (result == true) {
+                            _fetchTripDetails();
+                          }
+                        },
+                        icon: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Edit',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        );
-                        if (result == true) {
-                          _fetchTripDetails();
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Edit',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        _deleteAccommodation(activity);
-                      },
-                      icon: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _deleteAccommodation(activity);
+                        },
+                        icon: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       );
@@ -961,146 +1024,147 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        // 수정 모드로 이동
-                        final result = await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => AddScheduleScreen(
-                              trip: _tripDetail ?? widget.trip,
-                              transportation: activity,
+            if (_calculateCurrentStatus() != TripStatus.completed)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // 수정 모드로 이동
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => AddScheduleScreen(
+                                trip: _tripDetail ?? widget.trip,
+                                transportation: activity,
+                              ),
                             ),
-                          ),
-                        );
-                        if (result == true) {
-                          _fetchTripDetails();
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Edit',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        // 삭제 확인 다이얼로그
-                        final shouldDelete = await showDialog<bool>(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              backgroundColor: const Color(0xFF2A2A2A),
-                              title: const Text(
-                                'Delete Transportation',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              content: Text(
-                                'Are you sure you want to delete "${activity.title}"? This action cannot be undone.',
-                                style: const TextStyle(
-                                  color: Color(0xFFCCCCCC),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: const Text(
-                                    'Cancel',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  child: const Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                        if (shouldDelete != true) return;
-                        try {
-                          final token = await TokenService.getToken();
-                          if (token == null) {
-                            throw Exception('Authentication token not found');
-                          }
-                          final apiService = ApiService();
-                          await apiService.deleteTransportation(
-                            token,
-                            activity.id,
                           );
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Transportation deleted successfully!',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
+                          if (result == true) {
                             _fetchTripDetails();
                           }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Failed to delete transportation:  ${e.toString()}',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                        },
+                        icon: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Edit',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // 삭제 확인 다이얼로그
+                          final shouldDelete = await showDialog<bool>(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                backgroundColor: const Color(0xFF2A2A2A),
+                                title: const Text(
+                                  'Delete Transportation',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                content: Text(
+                                  'Are you sure you want to delete "${activity.title}"? This action cannot be undone.',
+                                  style: const TextStyle(
+                                    color: Color(0xFFCCCCCC),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          if (shouldDelete != true) return;
+                          try {
+                            final token = await TokenService.getToken();
+                            if (token == null) {
+                              throw Exception('Authentication token not found');
+                            }
+                            final apiService = ApiService();
+                            await apiService.deleteTransportation(
+                              token,
+                              activity.id,
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Transportation deleted successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              _fetchTripDetails();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to delete transportation:  ${e.toString()}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       );
@@ -1208,146 +1272,147 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        // 수정 모드로 이동
-                        final result = await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => AddScheduleScreen(
-                              trip: _tripDetail ?? widget.trip,
-                              other: activity,
+            if (_calculateCurrentStatus() != TripStatus.completed)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // 수정 모드로 이동
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => AddScheduleScreen(
+                                trip: _tripDetail ?? widget.trip,
+                                other: activity,
+                              ),
                             ),
-                          ),
-                        );
-                        if (result == true) {
-                          _fetchTripDetails();
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Edit',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        // 삭제 확인 다이얼로그
-                        final shouldDelete = await showDialog<bool>(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              backgroundColor: const Color(0xFF2A2A2A),
-                              title: const Text(
-                                'Delete Other Schedule',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              content: Text(
-                                'Are you sure you want to delete "${activity.title}"? This action cannot be undone.',
-                                style: const TextStyle(
-                                  color: Color(0xFFCCCCCC),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: const Text(
-                                    'Cancel',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  child: const Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                        if (shouldDelete != true) return;
-                        try {
-                          final token = await TokenService.getToken();
-                          if (token == null) {
-                            throw Exception('Authentication token not found');
-                          }
-                          final apiService = ApiService();
-                          await apiService.deleteOtherSchedule(
-                            token,
-                            activity.id,
                           );
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Other schedule deleted successfully!',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
+                          if (result == true) {
                             _fetchTripDetails();
                           }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Failed to delete other schedule: ${e.toString()}',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                        },
+                        icon: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Edit',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // 삭제 확인 다이얼로그
+                          final shouldDelete = await showDialog<bool>(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                backgroundColor: const Color(0xFF2A2A2A),
+                                title: const Text(
+                                  'Delete Other Schedule',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                content: Text(
+                                  'Are you sure you want to delete "${activity.title}"? This action cannot be undone.',
+                                  style: const TextStyle(
+                                    color: Color(0xFFCCCCCC),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          if (shouldDelete != true) return;
+                          try {
+                            final token = await TokenService.getToken();
+                            if (token == null) {
+                              throw Exception('Authentication token not found');
+                            }
+                            final apiService = ApiService();
+                            await apiService.deleteOtherSchedule(
+                              token,
+                              activity.id,
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Other schedule deleted successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              _fetchTripDetails();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to delete other schedule: ${e.toString()}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       );
@@ -1434,6 +1499,11 @@ class _TripDetailScreenState extends State<TripDetailScreen>
 
   // 숙박 옵션 다이얼로그 표시
   void _showAccommodationOptions(Activity accommodation) {
+    // 완료된 여행에서는 옵션 다이얼로그를 표시하지 않음
+    if (_calculateCurrentStatus() == TripStatus.completed) {
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF2A2A2A),
