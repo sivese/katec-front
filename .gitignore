@@ -9,6 +9,7 @@
 .history
 .svn/
 migrate_working_dir/
+my-release-key.keystore
 
 # IntelliJ related
 *.iml
