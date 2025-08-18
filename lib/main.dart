@@ -1,18 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:mercury_front/services/api_service.dart';
 import 'package:mercury_front/services/fcm_service.dart';
-import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 Future<void> main() async {
   // 환경변수 파일 로드
   await dotenv.load(fileName: ".env");
-  
+
   // FCM 서비스 초기화 (웹에서는 내부적으로 처리됨)
   await FcmService.initFcmService();
 

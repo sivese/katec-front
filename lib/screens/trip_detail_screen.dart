@@ -31,7 +31,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _fetchTripDetails();
   }
 
@@ -45,8 +45,6 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       if (token == null) throw Exception('Authentication token not found');
       final apiService = ApiService();
       final response = await apiService.getTripDetails(token, widget.trip.id);
-      print('Trip Detail API response:');
-      print(response);
       // trip 정보 파싱
       final tripJson = response['trip'] as Map<String, dynamic>;
       final trip = Trip(
@@ -384,7 +382,6 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           tabs: const [
             Tab(text: 'Overview'),
             Tab(text: 'Schedule'),
-            Tab(text: 'Notes'),
           ],
         ),
       ),
@@ -396,11 +393,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             )
           : TabBarView(
               controller: _tabController,
-              children: [
-                _buildOverviewTab(),
-                _buildScheduleTab(),
-                _buildNotesTab(),
-              ],
+              children: [_buildOverviewTab(), _buildScheduleTab()],
             ),
       floatingActionButton: _calculateCurrentStatus() == TripStatus.completed
           ? null // 완료된 여행에서는 FAB 숨김
@@ -640,22 +633,6 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildNotesTab() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.note, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'Notes feature coming soon',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
-      ),
     );
   }
 

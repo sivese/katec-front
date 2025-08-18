@@ -155,9 +155,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       final apiService = ApiService();
       final profile = await apiService.getUserProfile(widget.token);
 
-      // 웹의 경우 console.log(profile) 출력
-      print(profile);
-
       if (mounted) {
         final userName = profile['name'] ?? 'Unknown';
         setState(() {

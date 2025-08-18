@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 배경 원 -->
+  <circle cx="256" cy="256" r="240" fill="#FFFFFF" stroke="#000000" stroke-width="12"/>
+  
+  <!-- 나침반 외곽 원 -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#000000" stroke-width="8"/>
+  
+  <!-- 나침반 방향 표시 -->
+  <text x="256" y="120" text-anchor="middle" fill="#000000" font-family="Arial, sans-serif" font-size="36" font-weight="bold">N</text>
+  <text x="256" y="400" text-anchor="middle" fill="#000000" font-family="Arial, sans-serif" font-size="36" font-weight="bold">S</text>
+  <text x="120" y="256" text-anchor="middle" fill="#000000" font-family="Arial, sans-serif" font-size="36" font-weight="bold">W</text>
+  <text x="392" y="256" text-anchor="middle" fill="#000000" font-family="Arial, sans-serif" font-size="36" font-weight="bold">E</text>
+  
+  <!-- 나침반 바늘 -->
+  <line x1="256" y1="256" x2="256" y2="120" stroke="#000000" stroke-width="10" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="256" y2="392" stroke="#666666" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- 중앙 원 -->
+  <circle cx="256" cy="256" r="24" fill="#000000"/>
+  
+  <!-- M 문자 (Mercury) -->
+  <text x="256" y="285" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="52" font-weight="bold">M</text>
+</svg>

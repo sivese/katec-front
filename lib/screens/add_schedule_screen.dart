@@ -139,13 +139,9 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
       _endDate = other.endTime; // 기타 스케줄은 시작/종료 날짜가 같을 수 있으므로 종료일도 설정
       _selectedType = ScheduleType.other;
       _departureTimeController.text =
-          other.startTime.hour.toString().padLeft(2, '0') +
-          ':' +
-          other.startTime.minute.toString().padLeft(2, '0');
+          '${other.startTime.hour.toString().padLeft(2, '0')}:${other.startTime.minute.toString().padLeft(2, '0')}';
       _arrivalTimeController.text =
-          other.endTime.hour.toString().padLeft(2, '0') +
-          ':' +
-          other.endTime.minute.toString().padLeft(2, '0');
+          '${other.endTime.hour.toString().padLeft(2, '0')}:${other.endTime.minute.toString().padLeft(2, '0')}';
     } else {
       // 추가 모드: Trip의 시작/종료일
       _startDate = widget.trip.startDate;
@@ -711,43 +707,53 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Schedule type selection
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Accommodation'),
-                      selected: _selectedType == ScheduleType.accommodation,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(
-                            () => _selectedType = ScheduleType.accommodation,
-                          );
-                        }
-                      },
+                DropdownButtonFormField<ScheduleType>(
+                  value: _selectedType,
+                  decoration: InputDecoration(
+                    labelText: 'Schedule Type',
+                    labelStyle: const TextStyle(color: Color(0xFF888888)),
+                    prefixIcon: const Icon(
+                      Icons.schedule,
+                      color: Color(0xFF888888),
                     ),
-                    const SizedBox(width: 12),
-                    ChoiceChip(
-                      label: const Text('Transportation'),
-                      selected: _selectedType == ScheduleType.transportation,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(
-                            () => _selectedType = ScheduleType.transportation,
-                          );
-                        }
-                      },
+                    filled: true,
+                    fillColor: const Color(0xFF2A2A2A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
                     ),
-                    const SizedBox(width: 12),
-                    ChoiceChip(
-                      label: const Text('Other'),
-                      selected: _selectedType == ScheduleType.other,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _selectedType = ScheduleType.other);
-                        }
-                      },
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3A3A3A)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.white),
+                    ),
+                  ),
+                  dropdownColor: const Color(0xFF2A2A2A),
+                  style: const TextStyle(color: Colors.white),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ScheduleType.accommodation,
+                      child: Text('Accommodation'),
+                    ),
+                    DropdownMenuItem(
+                      value: ScheduleType.transportation,
+                      child: Text('Transportation'),
+                    ),
+                    DropdownMenuItem(
+                      value: ScheduleType.other,
+                      child: Text('Other'),
                     ),
                   ],
+                  onChanged: (ScheduleType? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedType = newValue;
+                      });
+                    }
+                  },
                 ),
                 const SizedBox(height: 24),
                 if (_selectedType == ScheduleType.accommodation) ...[

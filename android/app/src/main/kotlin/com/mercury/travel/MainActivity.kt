@@ -1,4 +1,4 @@
-package com.example.mercury_front
+package com.mercury.travel
 
 import io.flutter.embedding.android.FlutterActivity
 
