@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/trip.dart';
 import '../models/activity.dart';
+import '../models/recommendation.dart';
 import '../services/api_service.dart';
 import '../services/token_service.dart';
 
@@ -57,13 +58,15 @@ class TimeInputFormatter extends TextInputFormatter {
   }
 }
 
-enum ScheduleType { accommodation, transportation, other }
+enum ScheduleType { accommodation, transportation, other, dining }
 
 class AddScheduleScreen extends StatefulWidget {
   final Trip trip;
   final Activity? accommodation; // null이면 추가, 있으면 수정
   final Activity? transportation; // null이면 추가, 있으면 수정
   final Activity? other; // null이면 추가, 있으면 수정
+  final Activity? dining; // null이면 추가, 있으면 수정
+  final Recommendation? recommendation; // 추천 데이터로부터 일정 추가 시 사용
 
   const AddScheduleScreen({
     super.key,
@@ -71,6 +74,8 @@ class AddScheduleScreen extends StatefulWidget {
     this.accommodation,
     this.transportation,
     this.other,
+    this.dining,
+    this.recommendation,
   });
 
   @override
@@ -142,6 +147,67 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
           '${other.startTime.hour.toString().padLeft(2, '0')}:${other.startTime.minute.toString().padLeft(2, '0')}';
       _arrivalTimeController.text =
           '${other.endTime.hour.toString().padLeft(2, '0')}:${other.endTime.minute.toString().padLeft(2, '0')}';
+    } else if (widget.dining != null) {
+      // 식당 수정 모드: 기존 값 세팅
+      final dining = widget.dining!;
+      _titleController.text = dining.title;
+      _descriptionController.text = dining.description;
+      _locationController.text = dining.location;
+      _startDate = dining.startTime;
+      _endDate = dining.endTime;
+      _selectedType = ScheduleType.dining;
+      _departureTimeController.text =
+          '${dining.startTime.hour.toString().padLeft(2, '0')}:${dining.startTime.minute.toString().padLeft(2, '0')}';
+      _arrivalTimeController.text =
+          '${dining.endTime.hour.toString().padLeft(2, '0')}:${dining.endTime.minute.toString().padLeft(2, '0')}';
+    } else if (widget.recommendation != null) {
+      // 추천 데이터로부터 일정 추가 모드
+      final rec = widget.recommendation!;
+      _titleController.text = rec.title;
+      _descriptionController.text = rec.description;
+      _locationController.text = rec.address ?? rec.location;
+
+      // 추천 시간이 있으면 해당 시간으로 설정 (initState에서는 context 사용 불가)
+      if (rec.recommendedStartTime != null && rec.recommendedEndTime != null) {
+        // 시간을 문자열로 직접 변환하여 저장
+        _departureTimeController.text =
+            '${rec.recommendedStartTime!.hour.toString().padLeft(2, '0')}:${rec.recommendedStartTime!.minute.toString().padLeft(2, '0')}';
+        _arrivalTimeController.text =
+            '${rec.recommendedEndTime!.hour.toString().padLeft(2, '0')}:${rec.recommendedEndTime!.minute.toString().padLeft(2, '0')}';
+      }
+
+      // 카테고리에 따라 기본 타입 설정
+      switch (rec.category.toLowerCase()) {
+        case 'dining':
+        case 'food':
+          _selectedType = ScheduleType.dining;
+          break;
+        case 'nature':
+        case 'culture':
+        case 'shopping':
+        case 'entertainment':
+          _selectedType = ScheduleType.other;
+          break;
+        default:
+          _selectedType = ScheduleType.other;
+      }
+
+      // 추천 데이터가 있을 때는 오늘 날짜를 기본으로 설정 (즉시 추가 가능하도록)
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      // trip 기간 내에서 오늘 날짜가 유효한지 확인
+      if (today.isAfter(
+            widget.trip.startDate.subtract(const Duration(days: 1)),
+          ) &&
+          today.isBefore(widget.trip.endDate.add(const Duration(days: 1)))) {
+        _startDate = today;
+        _endDate = today;
+      } else {
+        // trip 기간 밖이면 trip 시작일 사용
+        _startDate = widget.trip.startDate;
+        _endDate = widget.trip.startDate;
+      }
     } else {
       // 추가 모드: Trip의 시작/종료일
       _startDate = widget.trip.startDate;
@@ -437,6 +503,9 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
     } else if (_selectedType == ScheduleType.other) {
       await _submitOtherSchedule();
       return;
+    } else if (_selectedType == ScheduleType.dining) {
+      await _submitDiningSchedule();
+      return;
     }
   }
 
@@ -627,6 +696,94 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
     }
   }
 
+  Future<void> _submitDiningSchedule() async {
+    // Dining schedule input validation
+    if (_titleController.text.trim().isEmpty ||
+        _locationController.text.trim().isEmpty ||
+        _startDate == null ||
+        _departureTimeController.text.trim().isEmpty ||
+        _arrivalTimeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all required fields.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+      final apiService = ApiService();
+      if (widget.dining != null) {
+        // 식당 수정 모드
+        await apiService.updateDiningSchedule(
+          token,
+          widget.dining!.id,
+          _titleController.text.trim(),
+          _locationController.text.trim(),
+          _startDate!,
+          '${_departureTimeController.text}:00',
+          '${_arrivalTimeController.text}:00',
+          _descriptionController.text.trim(),
+          widget.trip.id,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dining schedule updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        // 생성 모드
+        await apiService.createDiningSchedule(
+          token,
+          widget.trip.id,
+          _titleController.text.trim(),
+          _locationController.text.trim(),
+          _startDate!,
+          '${_departureTimeController.text}:00',
+          '${_arrivalTimeController.text}:00',
+          _descriptionController.text.trim(),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dining schedule added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to ${widget.dining != null ? 'update' : 'add'} dining schedule: ${e.toString()}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return 'Select Date';
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -680,7 +837,8 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
     final isEdit =
         widget.accommodation != null ||
         widget.transportation != null ||
-        widget.other != null;
+        widget.other != null ||
+        widget.dining != null;
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       appBar: AppBar(
@@ -706,6 +864,66 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 추천 데이터 정보 표시 (있는 경우에만)
+                if (widget.recommendation != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.lightbulb_outline,
+                              color: Colors.blue,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Recommendation Data',
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildRecommendationInfo(
+                          'Title',
+                          widget.recommendation!.title,
+                          Icons.title,
+                        ),
+                        _buildRecommendationInfo(
+                          'Category',
+                          widget.recommendation!.category,
+                          Icons.category,
+                        ),
+                        if (widget.recommendation!.recommendedStartTime !=
+                                null &&
+                            widget.recommendation!.recommendedEndTime != null)
+                          _buildRecommendationInfo(
+                            'Recommended Time',
+                            '${widget.recommendation!.recommendedStartTime!.format(context)} - ${widget.recommendation!.recommendedEndTime!.format(context)}',
+                            Icons.access_time,
+                          ),
+                        if (widget.recommendation!.localTip != null)
+                          _buildRecommendationInfo(
+                            'Local Tip',
+                            widget.recommendation!.localTip!,
+                            Icons.tips_and_updates_outlined,
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 // Schedule type selection
                 DropdownButtonFormField<ScheduleType>(
                   value: _selectedType,
@@ -745,6 +963,10 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
                     DropdownMenuItem(
                       value: ScheduleType.other,
                       child: Text('Other'),
+                    ),
+                    DropdownMenuItem(
+                      value: ScheduleType.dining,
+                      child: Text('Dining'),
                     ),
                   ],
                   onChanged: (ScheduleType? newValue) {
@@ -1523,11 +1745,302 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
                             ),
                           ),
                   ),
+                ] else if (_selectedType == ScheduleType.dining) ...[
+                  TextFormField(
+                    controller: _titleController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Restaurant Name',
+                      labelStyle: TextStyle(color: Color(0xFF888888)),
+                      prefixIcon: Icon(
+                        Icons.restaurant,
+                        color: Color(0xFF888888),
+                      ),
+                      filled: true,
+                      fillColor: Color(0xFF2A2A2A),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter restaurant name';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _locationController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Location',
+                      labelStyle: TextStyle(color: Color(0xFF888888)),
+                      prefixIcon: Icon(
+                        Icons.location_on,
+                        color: Color(0xFF888888),
+                      ),
+                      filled: true,
+                      fillColor: Color(0xFF2A2A2A),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter location';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: Colors.white,
+                                onPrimary: Color(0xFF1E1E1E),
+                                surface: Color(0xFF2A2A2A),
+                                onSurface: Colors.white,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _startDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFF3A3A3A)),
+                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFF2A2A2A),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today,
+                            color: Color(0xFF888888),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Date: ${_formatDate(_startDate)}',
+                            style: TextStyle(
+                              color: _startDate == null
+                                  ? const Color(0xFF888888)
+                                  : Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _departureTimeController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Reservation Time',
+                            labelStyle: const TextStyle(
+                              color: Color(0xFF888888),
+                            ),
+                            hintText: '19:30',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFF666666),
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.access_time,
+                              color: Color(0xFF888888),
+                            ),
+                            suffixText: 'HH:MM',
+                            suffixStyle: const TextStyle(
+                              color: Color(0xFF888888),
+                              fontSize: 12,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF2A2A2A),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3A3A3A),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3A3A3A),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Colors.white),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9:]'),
+                            ),
+                            LengthLimitingTextInputFormatter(5),
+                            TimeInputFormatter(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _arrivalTimeController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'End Time',
+                            labelStyle: const TextStyle(
+                              color: Color(0xFF888888),
+                            ),
+                            hintText: '21:30',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFF666666),
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.access_time,
+                              color: Color(0xFF888888),
+                            ),
+                            suffixText: 'HH:MM',
+                            suffixStyle: const TextStyle(
+                              color: Color(0xFF888888),
+                              fontSize: 12,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF2A2A2A),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3A3A3A),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3A3A3A),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Colors.white),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9:]'),
+                            ),
+                            LengthLimitingTextInputFormatter(5),
+                            TimeInputFormatter(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _descriptionController,
+                    style: const TextStyle(color: Colors.white),
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      labelStyle: TextStyle(color: Color(0xFF888888)),
+                      hintText:
+                          'e.g., Fine dining, Italian cuisine, Special occasion',
+                      hintStyle: TextStyle(color: Color(0xFF666666)),
+                      prefixIcon: Icon(
+                        Icons.description,
+                        color: Color(0xFF888888),
+                      ),
+                      filled: true,
+                      fillColor: Color(0xFF2A2A2A),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _submitDiningSchedule,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            isEdit ? 'Save Changes' : 'Add Dining',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
                 ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // 추천 정보를 표시하는 헬퍼 메서드
+  Widget _buildRecommendationInfo(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.blue, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

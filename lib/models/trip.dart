@@ -43,6 +43,12 @@ class Trip {
         .where((activity) => activity.type == ActivityType.activity)
         .toList();
   }
+
+  List<Activity> get diningActivities {
+    return activities
+        .where((activity) => activity.type == ActivityType.dining)
+        .toList();
+  }
 }
 
 enum TripStatus {

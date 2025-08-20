@@ -137,8 +137,8 @@ class FcmService {
     }
 
     try {
-      final _uri = Uri.parse('$uri/$fcmToken');
-      var res = await http.get(_uri, headers: _defaultHeaders);
+      final uri0 = Uri.parse('$uri/$fcmToken');
+      var res = await http.get(uri0, headers: _defaultHeaders);
 
       return res;
     } catch (e) {

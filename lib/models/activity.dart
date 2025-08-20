@@ -4,6 +4,7 @@ enum ActivityType {
   accommodation, // 숙박
   transportation, // 교통
   activity, // 기타 활동
+  dining, // 식당
 }
 
 enum ActivityStatus {
@@ -75,6 +76,8 @@ extension ActivityTypeExtension on ActivityType {
         return 'Transportation';
       case ActivityType.activity:
         return 'Activity';
+      case ActivityType.dining:
+        return 'Dining';
     }
   }
 
@@ -86,6 +89,8 @@ extension ActivityTypeExtension on ActivityType {
         return Icons.directions_car;
       case ActivityType.activity:
         return Icons.event;
+      case ActivityType.dining:
+        return Icons.restaurant;
     }
   }
 
@@ -97,6 +102,8 @@ extension ActivityTypeExtension on ActivityType {
         return Colors.green;
       case ActivityType.activity:
         return Colors.orange;
+      case ActivityType.dining:
+        return Colors.purple;
     }
   }
 }

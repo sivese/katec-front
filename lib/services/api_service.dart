@@ -788,6 +788,129 @@ class ApiService {
     }
   }
 
+  // Dining 스케줄 생성 API
+  Future<Map<String, dynamic>> createDiningSchedule(
+    String token,
+    String tripId,
+    String title,
+    String location,
+    DateTime date,
+    String startTime,
+    String endTime,
+    String? description,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final requestBody = {
+        'title': title,
+        'location': location,
+        'date':
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+        'startTime': startTime,
+        'endTime': endTime,
+        'description': description ?? '',
+        'tripId': tripId,
+      };
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/subtrips/dining/create'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // 서버에서 반환하는 에러 메시지가 있다면 사용
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to create dining schedule: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Create dining schedule error: $e');
+    }
+  }
+
+  // Dining Trip(식당 일정) 수정 API
+  Future<Map<String, dynamic>> updateDiningSchedule(
+    String token,
+    String diningSubTripId,
+    String title,
+    String location,
+    DateTime date,
+    String startTime,
+    String endTime,
+    String? description,
+    String tripId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+      final requestBody = {
+        'title': title,
+        'location': location,
+        'date': date.toUtc().toIso8601String(),
+        'startTime': startTime,
+        'endTime': endTime,
+        'description': description ?? '',
+        'tripId': tripId,
+      };
+      final response = await _client.put(
+        Uri.parse('$_baseUrl/subtrips/dining/$diningSubTripId'),
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to update dining schedule: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Update dining schedule error: $e');
+    }
+  }
+
+  // Dining Trip(식당 일정) 삭제 API
+  Future<void> deleteDiningSchedule(
+    String token,
+    String diningSubTripId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+      final response = await _client.delete(
+        Uri.parse('$_baseUrl/subtrips/dining/$diningSubTripId'),
+        headers: headers,
+      );
+      if (response.statusCode != 200) {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to delete dining schedule: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Delete dining schedule error: $e');
+    }
+  }
+
   // Trip 정보 업데이트 API
   Future<Map<String, dynamic>> updateTrip(
     String token,

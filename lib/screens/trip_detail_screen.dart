@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/trip.dart';
 import '../models/activity.dart';
+import '../models/recommendation.dart';
 import '../services/api_service.dart';
 import '../services/token_service.dart';
 import '../widgets/activity_filter_widget.dart';
@@ -28,10 +29,67 @@ class _TripDetailScreenState extends State<TripDetailScreen>
   bool _isLoading = true;
   String? _error;
 
+  // Recommendation 관련 변수들
+  bool _showRecommendations = false;
+  final List<Recommendation> _recommendations = [
+    const Recommendation(
+      id: 'rec_001',
+      title: 'Stanley Park',
+      description: '도심 속 거대한 공원, 산책/자전거 코스 훌륭',
+      location: 'Vancouver, BC',
+      category: 'Nature',
+      estimatedDuration: 90,
+      recommendedStartTime: TimeOfDay(hour: 9, minute: 0),
+      recommendedEndTime: TimeOfDay(hour: 18, minute: 0),
+      localTip: 'Seawall 코스 반시계 방향으로 돌면 뷰가 좋아요',
+      imageUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba',
+      address: '2000 W Georgia St, Vancouver, BC V6G 2P9, Canada',
+    ),
+    const Recommendation(
+      id: 'rec_002',
+      title: 'Granville Island Public Market',
+      description: '현지 먹거리와 아티스트 숍 구경',
+      location: 'Vancouver, BC',
+      category: 'Dining',
+      estimatedDuration: 60,
+      recommendedStartTime: TimeOfDay(hour: 11, minute: 0),
+      recommendedEndTime: TimeOfDay(hour: 15, minute: 0),
+      localTip: '피크타임 전 11시 이전이 한산',
+      imageUrl: 'https://images.unsplash.com/photo-1498654896293-37aacf113fd9',
+      address: '1669 Johnston St, Vancouver, BC V6H 3R9, Canada',
+    ),
+    const Recommendation(
+      id: 'rec_003',
+      title: 'Vancouver Art Gallery',
+      description: '현대미술 전시가 다양',
+      location: 'Vancouver, BC',
+      category: 'Culture',
+      estimatedDuration: 75,
+      recommendedStartTime: TimeOfDay(hour: 13, minute: 0),
+      recommendedEndTime: TimeOfDay(hour: 16, minute: 0),
+      localTip: '비 오는 날 코스로 좋아요',
+      imageUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee',
+      address: '750 Hornby St, Vancouver, BC V6Z 2H7, Canada',
+    ),
+    const Recommendation(
+      id: 'rec_004',
+      title: 'Gastown',
+      description: '스팀클락, 빈티지 상점, 카페',
+      location: 'Vancouver, BC',
+      category: 'Shopping',
+      estimatedDuration: 50,
+      recommendedStartTime: TimeOfDay(hour: 17, minute: 0),
+      recommendedEndTime: TimeOfDay(hour: 21, minute: 0),
+      localTip: '스팀클락 정각 증기쇼 타이밍 맞추기',
+      imageUrl: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c',
+      address: 'Water St, Vancouver, BC V6B 1B8, Canada',
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _fetchTripDetails();
   }
 
@@ -66,7 +124,13 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         final transportations =
             (subTripsData['transportations'] as List<dynamic>? ?? []);
         final others = (subTripsData['otherSubTrips'] as List<dynamic>? ?? []);
-        allSubTrips = [...accommodations, ...transportations, ...others];
+        final dinings = (subTripsData['dinings'] as List<dynamic>? ?? []);
+        allSubTrips = [
+          ...accommodations,
+          ...transportations,
+          ...others,
+          ...dinings,
+        ];
       } else if (subTripsData is List<dynamic>) {
         allSubTrips = subTripsData;
       }
@@ -125,7 +189,37 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             );
             break;
           case 'Dining':
-            // TODO: Dining 타입 파싱 필요시 구현
+            final date = DateTime.parse(subTrip['date']);
+            final startTimeParts = (subTrip['startTime'] as String).split(':');
+            final endTimeParts = (subTrip['endTime'] as String).split(':');
+            final startDateTime = DateTime(
+              date.year,
+              date.month,
+              date.day,
+              int.parse(startTimeParts[0]),
+              int.parse(startTimeParts[1]),
+            );
+            final endDateTime = DateTime(
+              date.year,
+              date.month,
+              date.day,
+              int.parse(endTimeParts[0]),
+              int.parse(endTimeParts[1]),
+            );
+            activities.add(
+              Activity(
+                id: subTrip['subTripId'] ?? subTrip['_id'] ?? '',
+                title: subTrip['title'] ?? '',
+                description: subTrip['description'] ?? '',
+                type: ActivityType.dining,
+                status: ActivityStatus.planned,
+                startTime: startDateTime,
+                endTime: endDateTime,
+                location: subTrip['location'] ?? '',
+                bookingReference: null,
+                notes: null,
+              ),
+            );
             break;
           case 'Other':
             final date = DateTime.parse(subTrip['date']);
@@ -147,7 +241,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             );
             activities.add(
               Activity(
-                id: subTrip['_id'] ?? '',
+                id: subTrip['subTripId'] ?? subTrip['_id'] ?? '',
                 title: subTrip['title'] ?? '',
                 description: subTrip['description'] ?? '',
                 type: ActivityType.activity,
@@ -382,6 +476,7 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           tabs: const [
             Tab(text: 'Overview'),
             Tab(text: 'Schedule'),
+            Tab(text: 'Recommendation'),
           ],
         ),
       ),
@@ -393,7 +488,11 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             )
           : TabBarView(
               controller: _tabController,
-              children: [_buildOverviewTab(), _buildScheduleTab()],
+              children: [
+                _buildOverviewTab(),
+                _buildScheduleTab(),
+                _buildRecommendationTab(),
+              ],
             ),
       floatingActionButton: _calculateCurrentStatus() == TripStatus.completed
           ? null // 완료된 여행에서는 FAB 숨김
@@ -630,6 +729,313 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 ],
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendationTab() {
+    if (!_showRecommendations) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lightbulb_outline, size: 64, color: Colors.blue),
+            const SizedBox(height: 16),
+            const Text(
+              'Get AI Recommendations',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Discover personalized activities for your trip',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _showRecommendations = true;
+                });
+              },
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Get Recommendations'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // 추천 리스트 헤더
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Icon(Icons.lightbulb, color: Colors.blue, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'AI Recommendations',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showRecommendations = false;
+                  });
+                },
+                icon: const Icon(Icons.refresh, color: Colors.blue),
+                label: const Text(
+                  'Refresh',
+                  style: TextStyle(color: Colors.blue),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 추천 리스트
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _recommendations.length,
+            itemBuilder: (context, index) {
+              final rec = _recommendations[index];
+              return _buildRecommendationCard(rec);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendationCard(Recommendation rec) {
+    final minutesText = rec.estimatedDuration >= 60
+        ? '${rec.estimatedDuration ~/ 60}h ${rec.estimatedDuration % 60}m'
+        : '${rec.estimatedDuration}m';
+
+    return Card(
+      color: const Color(0xFF2A2A2A),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 썸네일 이미지
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: rec.imageUrl != null
+                  ? Image.network(
+                      rec.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[800],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
+                            size: 48,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[800],
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.grey,
+                        size: 48,
+                      ),
+                    ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 제목과 카테고리
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        rec.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        rec.category,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // 위치
+                Row(
+                  children: [
+                    const Icon(Icons.place, color: Colors.grey, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      rec.location,
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // 설명
+                Text(
+                  rec.description,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+
+                const SizedBox(height: 12),
+
+                // 추가 정보 행
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildRecommendationInfo(
+                        Icons.schedule,
+                        'Duration: $minutesText',
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildRecommendationInfo(
+                        Icons.wb_sunny_outlined,
+                        'Best: ${rec.recommendedStartTime != null && rec.recommendedEndTime != null ? '${rec.recommendedStartTime!.format(context)} - ${rec.recommendedEndTime!.format(context)}' : 'N/A'}',
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // 로컬 팁
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.tips_and_updates_outlined,
+                        color: Colors.orange,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          rec.localTip ?? 'No local tips available',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Add to Schedule 버튼
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _addToSchedule(rec);
+                    },
+                    icon: const Icon(
+                      Icons.add_to_queue,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Add to Schedule',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationInfo(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.grey, size: 16),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ),
       ],
@@ -1394,6 +1800,197 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         ),
       );
     }
+    if (activity.type == ActivityType.dining) {
+      // 식당(Dining) 전용 카드 (아코디언)
+      return Card(
+        color: const Color(0xFF2A2A2A),
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          collapsedIconColor: Colors.white,
+          iconColor: Colors.white,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.restaurant, color: Colors.purple, size: 20),
+          ),
+          title: Text(
+            activity.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            '${_formatDate(activity.startTime)} ${_formatTime(activity.startTime)} - ${_formatTime(activity.endTime)}',
+            style: const TextStyle(
+              color: Colors.purple,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Dining',
+              style: TextStyle(
+                color: Colors.purple,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (activity.location.isNotEmpty)
+                    _buildInfoItem(
+                      Icons.location_on,
+                      'Location',
+                      activity.location,
+                    ),
+                  if (activity.description.isNotEmpty)
+                    _buildInfoItem(
+                      Icons.description,
+                      'Description',
+                      activity.description,
+                    ),
+                  _buildInfoItem(
+                    Icons.access_time,
+                    'Duration',
+                    activity.durationText,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            // 수정 모드로 이동
+                            final result = await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => AddScheduleScreen(
+                                  trip: _tripDetail ?? widget.trip,
+                                  dining: activity,
+                                ),
+                              ),
+                            );
+                            if (result == true) {
+                              _fetchTripDetails();
+                            }
+                          },
+                          icon: const Icon(Icons.edit, size: 18),
+                          label: const Text('Edit'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final shouldDelete = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Dining'),
+                                content: Text(
+                                  'Are you sure you want to delete "${activity.title}"?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (shouldDelete != true) return;
+                            try {
+                              final token = await TokenService.getToken();
+                              if (token == null) {
+                                throw Exception(
+                                  'Authentication token not found',
+                                );
+                              }
+                              final apiService = ApiService();
+                              await apiService.deleteDiningSchedule(
+                                token,
+                                activity.id,
+                              );
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Dining schedule deleted successfully!',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                                _fetchTripDetails();
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Failed to delete dining schedule: ${e.toString()}',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     // 기타 활동(기존 방식)
     return Card(
       color: const Color(0xFF2A2A2A),
@@ -1542,6 +2139,94 @@ class _TripDetailScreenState extends State<TripDetailScreen>
         ),
       ),
     );
+  }
+
+  // 추천을 일정에 추가하는 기능
+  void _addToSchedule(Recommendation recommendation) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2A2A2A),
+          title: const Text(
+            'Add to Schedule',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add "${recommendation.title}" to your schedule?',
+                style: const TextStyle(color: Color(0xFFCCCCCC)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Location: ${recommendation.address ?? recommendation.location}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              Text(
+                'Duration: ${recommendation.estimatedDuration >= 60 ? '${recommendation.estimatedDuration ~/ 60}h ${recommendation.estimatedDuration % 60}m' : '${recommendation.estimatedDuration}m'}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToAddSchedule(recommendation);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // AddScheduleScreen으로 이동하여 추천 데이터 전달
+  void _navigateToAddSchedule(Recommendation recommendation) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddScheduleScreen(
+          trip: _tripDetail ?? widget.trip,
+          recommendation: recommendation,
+        ),
+      ),
+    );
+
+    // 일정 추가가 성공했으면 데이터 새로고침
+    if (result == true) {
+      _fetchTripDetails();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Schedule added successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // 추천 데이터가 폼에 자동으로 채워졌음을 알리는 SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Recommendation data has been pre-filled in the form!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   // 숙박 삭제 기능
