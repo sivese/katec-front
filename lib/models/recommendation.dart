@@ -10,7 +10,6 @@ class Recommendation {
   final TimeOfDay? recommendedStartTime; // Recommended start time for visit
   final TimeOfDay? recommendedEndTime; // Recommended end time for visit
   final String? localTip;
-  final String? imageUrl;
   final String? address; // Detailed address instead of coordinates
   final String? website;
   final String? phoneNumber;
@@ -26,7 +25,6 @@ class Recommendation {
     this.recommendedStartTime,
     this.recommendedEndTime,
     this.localTip,
-    this.imageUrl,
     this.address,
     this.website,
     this.phoneNumber,
@@ -49,7 +47,6 @@ class Recommendation {
           ? '${recommendedEndTime!.hour.toString().padLeft(2, '0')}:${recommendedEndTime!.minute.toString().padLeft(2, '0')}'
           : null,
       'localTip': localTip,
-      'imageUrl': imageUrl,
       'address': address,
       'website': website,
       'phoneNumber': phoneNumber,
@@ -82,7 +79,6 @@ class Recommendation {
       recommendedStartTime: parseTime(json['recommendedStartTime']),
       recommendedEndTime: parseTime(json['recommendedEndTime']),
       localTip: json['localTip'],
-      imageUrl: json['imageUrl'],
       address: json['address'],
       website: json['website'],
       phoneNumber: json['phoneNumber'],
@@ -101,7 +97,6 @@ class Recommendation {
     TimeOfDay? recommendedStartTime,
     TimeOfDay? recommendedEndTime,
     String? localTip,
-    String? imageUrl,
     String? address,
     String? website,
     String? phoneNumber,
@@ -117,7 +112,6 @@ class Recommendation {
       recommendedStartTime: recommendedStartTime ?? this.recommendedStartTime,
       recommendedEndTime: recommendedEndTime ?? this.recommendedEndTime,
       localTip: localTip ?? this.localTip,
-      imageUrl: imageUrl ?? this.imageUrl,
       address: address ?? this.address,
       website: website ?? this.website,
       phoneNumber: phoneNumber ?? this.phoneNumber,

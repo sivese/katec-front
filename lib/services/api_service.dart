@@ -944,6 +944,45 @@ class ApiService {
     }
   }
 
+  // Trip 추천 API
+  Future<List<Map<String, dynamic>>> getTripRecommendations(
+    String token,
+    String tripId,
+  ) async {
+    try {
+      final headers = Map<String, String>.from(_defaultHeaders);
+      headers['Authorization'] = 'Bearer $token';
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/recommendations/trip/$tripId'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = json.decode(response.body);
+        if (responseBody['success'] == true) {
+          final List<dynamic> recommendations = responseBody['recommendations'];
+          return recommendations.cast<Map<String, dynamic>>();
+        } else {
+          throw Exception(
+            'Failed to get recommendations: ${responseBody['message'] ?? 'Unknown error'}',
+          );
+        }
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage =
+            errorBody['message'] ??
+            'Failed to get recommendations: ${response.statusCode}';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is FormatException) {
+        throw Exception('Invalid response format from server');
+      }
+      throw Exception('Get recommendations error: $e');
+    }
+  }
+
   // 리소스 정리
   void dispose() {
     _client.close();

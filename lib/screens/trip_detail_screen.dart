@@ -31,60 +31,8 @@ class _TripDetailScreenState extends State<TripDetailScreen>
 
   // Recommendation 관련 변수들
   bool _showRecommendations = false;
-  final List<Recommendation> _recommendations = [
-    const Recommendation(
-      id: 'rec_001',
-      title: 'Stanley Park',
-      description: '도심 속 거대한 공원, 산책/자전거 코스 훌륭',
-      location: 'Vancouver, BC',
-      category: 'Nature',
-      estimatedDuration: 90,
-      recommendedStartTime: TimeOfDay(hour: 9, minute: 0),
-      recommendedEndTime: TimeOfDay(hour: 18, minute: 0),
-      localTip: 'Seawall 코스 반시계 방향으로 돌면 뷰가 좋아요',
-      imageUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba',
-      address: '2000 W Georgia St, Vancouver, BC V6G 2P9, Canada',
-    ),
-    const Recommendation(
-      id: 'rec_002',
-      title: 'Granville Island Public Market',
-      description: '현지 먹거리와 아티스트 숍 구경',
-      location: 'Vancouver, BC',
-      category: 'Dining',
-      estimatedDuration: 60,
-      recommendedStartTime: TimeOfDay(hour: 11, minute: 0),
-      recommendedEndTime: TimeOfDay(hour: 15, minute: 0),
-      localTip: '피크타임 전 11시 이전이 한산',
-      imageUrl: 'https://images.unsplash.com/photo-1498654896293-37aacf113fd9',
-      address: '1669 Johnston St, Vancouver, BC V6H 3R9, Canada',
-    ),
-    const Recommendation(
-      id: 'rec_003',
-      title: 'Vancouver Art Gallery',
-      description: '현대미술 전시가 다양',
-      location: 'Vancouver, BC',
-      category: 'Culture',
-      estimatedDuration: 75,
-      recommendedStartTime: TimeOfDay(hour: 13, minute: 0),
-      recommendedEndTime: TimeOfDay(hour: 16, minute: 0),
-      localTip: '비 오는 날 코스로 좋아요',
-      imageUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee',
-      address: '750 Hornby St, Vancouver, BC V6Z 2H7, Canada',
-    ),
-    const Recommendation(
-      id: 'rec_004',
-      title: 'Gastown',
-      description: '스팀클락, 빈티지 상점, 카페',
-      location: 'Vancouver, BC',
-      category: 'Shopping',
-      estimatedDuration: 50,
-      recommendedStartTime: TimeOfDay(hour: 17, minute: 0),
-      recommendedEndTime: TimeOfDay(hour: 21, minute: 0),
-      localTip: '스팀클락 정각 증기쇼 타이밍 맞추기',
-      imageUrl: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c',
-      address: 'Water St, Vancouver, BC V6B 1B8, Canada',
-    ),
-  ];
+  List<Recommendation> _recommendations = [];
+  bool _isLoadingRecommendations = false;
 
   @override
   void initState() {
@@ -763,6 +711,8 @@ class _TripDetailScreenState extends State<TripDetailScreen>
                 setState(() {
                   _showRecommendations = true;
                 });
+                // API에서 추천 데이터 가져오기
+                _fetchRecommendations();
               },
               icon: const Icon(Icons.auto_awesome),
               label: const Text('Get Recommendations'),
@@ -803,9 +753,8 @@ class _TripDetailScreenState extends State<TripDetailScreen>
               const Spacer(),
               TextButton.icon(
                 onPressed: () {
-                  setState(() {
-                    _showRecommendations = false;
-                  });
+                  // 추천 데이터 새로고침
+                  _fetchRecommendations();
                 },
                 icon: const Icon(Icons.refresh, color: Colors.blue),
                 label: const Text(
@@ -819,14 +768,53 @@ class _TripDetailScreenState extends State<TripDetailScreen>
 
         // 추천 리스트
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _recommendations.length,
-            itemBuilder: (context, index) {
-              final rec = _recommendations[index];
-              return _buildRecommendationCard(rec);
-            },
-          ),
+          child: _isLoadingRecommendations
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading recommendations...',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              : _recommendations.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'No recommendations available',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Try refreshing or check back later',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _recommendations.length,
+                  itemBuilder: (context, index) {
+                    final rec = _recommendations[index];
+                    return _buildRecommendationCard(rec);
+                  },
+                ),
         ),
       ],
     );
@@ -844,34 +832,35 @@ class _TripDetailScreenState extends State<TripDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 썸네일 이미지
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: rec.imageUrl != null
-                  ? Image.network(
-                      rec.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[800],
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey,
-                            size: 48,
-                          ),
-                        );
-                      },
-                    )
-                  : Container(
-                      color: Colors.grey[800],
-                      child: const Icon(
-                        Icons.image_not_supported,
-                        color: Colors.grey,
-                        size: 48,
-                      ),
-                    ),
+          // 카테고리 배지 (이미지 대신 상단에 배치)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              border: Border(
+                bottom: BorderSide(color: Colors.blue.withOpacity(0.3)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _getCategoryIcon(rec.category),
+                  color: Colors.blue,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  rec.category,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -880,38 +869,14 @@ class _TripDetailScreenState extends State<TripDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 제목과 카테고리
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        rec.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        rec.category,
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
+                // 제목
+                Text(
+                  rec.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
 
                 const SizedBox(height: 8),
@@ -2196,6 +2161,80 @@ class _TripDetailScreenState extends State<TripDetailScreen>
     );
   }
 
+  // 추천 데이터를 API에서 가져오기
+  Future<void> _fetchRecommendations() async {
+    if (!_showRecommendations) return;
+
+    setState(() {
+      _isLoadingRecommendations = true;
+    });
+
+    try {
+      final token = await TokenService.getToken();
+      if (token == null) throw Exception('Authentication token not found');
+
+      final apiService = ApiService();
+      final recommendationsData = await apiService.getTripRecommendations(
+        token,
+        widget.trip.id,
+      );
+
+      // API 응답을 Recommendation 객체로 변환
+      final recommendations = recommendationsData.map((data) {
+        // recommendedStartTime과 recommendedEndTime을 TimeOfDay로 변환
+        TimeOfDay? parseTime(String? timeStr) {
+          if (timeStr == null) return null;
+          final parts = timeStr.split(':');
+          if (parts.length == 2) {
+            final hour = int.tryParse(parts[0]);
+            final minute = int.tryParse(parts[1]);
+            if (hour != null && minute != null) {
+              return TimeOfDay(hour: hour, minute: minute);
+            }
+          }
+          return null;
+        }
+
+        return Recommendation(
+          id: data['id'] ?? '',
+          title: data['title'] ?? '',
+          description: data['description'] ?? '',
+          location: data['location'] ?? '',
+          category: data['category'] ?? '',
+          estimatedDuration: data['estimatedDuration'] ?? 0,
+          recommendedStartTime: parseTime(data['recommendedStartTime']),
+          recommendedEndTime: parseTime(data['recommendedEndTime']),
+          localTip: data['localTip'],
+          address: data['address'],
+          website: data['website'],
+          phoneNumber: data['phoneNumber'],
+          additionalInfo: data['additionalInfo'],
+        );
+      }).toList();
+
+      setState(() {
+        _recommendations = recommendations;
+        _isLoadingRecommendations = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingRecommendations = false;
+        _recommendations = []; // 에러 시 빈 리스트로 설정
+      });
+
+      // 에러 메시지 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load recommendations: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   // AddScheduleScreen으로 이동하여 추천 데이터 전달
   void _navigateToAddSchedule(Recommendation recommendation) async {
     final result = await Navigator.of(context).push(
@@ -2226,6 +2265,25 @@ class _TripDetailScreenState extends State<TripDetailScreen>
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  // 카테고리별 아이콘 반환
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'nature':
+        return Icons.park;
+      case 'culture':
+        return Icons.museum;
+      case 'dining':
+      case 'food':
+        return Icons.restaurant;
+      case 'shopping':
+        return Icons.shopping_bag;
+      case 'entertainment':
+        return Icons.movie;
+      default:
+        return Icons.place;
     }
   }
 
