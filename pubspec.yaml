@@ -27,6 +27,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/mercury_icon.png
     - .env
 
 # 웹 플랫폼 지원 명시

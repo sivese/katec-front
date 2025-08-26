@@ -100,14 +100,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Spacer(),
 
                     // Logo/Title Section
-                    const Icon(
-                      Icons.flight_takeoff,
-                      size: 80,
-                      color: Colors.white,
+                    Image.asset(
+                      'assets/mercury_icon.png',
+                      width: 150,
+                      height: 150
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     const Text(
-                      'Welcome Back',
+                      'Mercury',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,

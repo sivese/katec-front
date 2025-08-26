@@ -431,6 +431,12 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
           DateTime(_startDate!.year, _startDate!.month, _startDate!.day, 15, 0),
           DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 11, 0),
         );
+
+        var accom = _titleController.text.trim();
+        var pushTime = DateTime.now().add(const Duration(seconds: 5));
+
+        apiService.pushMessage("Today check in!", "Don't forget to check in ${accom}!", pushTime.toUtc());
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
